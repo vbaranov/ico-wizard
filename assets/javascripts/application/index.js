@@ -1,4 +1,4 @@
-var octo = new Octokat({token: "f420c9fe858004b4e28f8d7565bc006b5c4e975d"});
+var octo = new Octokat({token: "minimal_github_token"});
 
 var parentDir = 'contracts/crowdsale/';
 
