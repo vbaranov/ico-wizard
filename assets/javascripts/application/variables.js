@@ -1,2 +1,0 @@
-var allSrcFiles = [];
-var importedSrcFiles = [];
