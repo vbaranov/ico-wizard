@@ -10,9 +10,9 @@ export class Home extends Component {
     this.state = defaultState
   }
 
-  addContractsToState (src, bin, abi) {
+  addContractsToState (src, bin, abi, isBonus) {
     let newState = Object.assign({}, this.state)
-    newState.contracts.crowdsale = {
+    newState.contracts[isBonus?"bonus":"crowdsale"] = {
       src,
       bin,
       abi: JSON.parse(abi)
@@ -22,11 +22,17 @@ export class Home extends Component {
 
   componentDidMount() {
     //const contractName = "RomanCrowdsale";
-    const contractName = "SampleCrowdsale";
+    const contractName = "OraclesExtendedCrowdsale";
     let src, bin
     setFlatFileContentToState("./contracts/" + contractName + "_flat.sol", (content) => src = content);
     setFlatFileContentToState("./contracts/" + contractName + "_flat.bin", (_bin) => bin = _bin);
     setFlatFileContentToState("./contracts/" + contractName + "_flat.abi", (_abi) => this.addContractsToState(src, bin, _abi));
+
+    const bonusContractName = "OraclesExtendedCrowdsaleBonus";
+    let srcBonus, binBonus
+    setFlatFileContentToState("./contracts/" + bonusContractName + "_flat.sol", (content) => srcBonus = content);
+    setFlatFileContentToState("./contracts/" + bonusContractName + "_flat.bin", (_bin) => binBonus = _bin);
+    setFlatFileContentToState("./contracts/" + bonusContractName + "_flat.abi", (_abi) => this.addContractsToState(srcBonus, binBonus, _abi, true));
   }
 
   render() {

@@ -29,7 +29,7 @@ export class stepFive extends React.Component {
 			    
 			    var derivativesLength = 4;
 			    var derivativesIterator = 0;
-			    setFlatFileContentToState("./contracts/SampleCrowdsale_flat.bin", function(_bin) {
+			    setFlatFileContentToState("./contracts/OraclesExtendedCrowdSale_flat.bin", function(_bin) {
 			      derivativesIterator++;
 			      state.contracts.crowdsale.bin = _bin;
 
@@ -37,7 +37,7 @@ export class stepFive extends React.Component {
 			        $this.extractContractsData($this, state, web3);
 			      }
 			    });
-			    setFlatFileContentToState("./contracts/SampleCrowdsale_flat.abi", function(_abi) {
+			    setFlatFileContentToState("./contracts/OraclesExtendedCrowdSale_flat.abi", function(_abi) {
 			      derivativesIterator++;
 			      state.contracts.crowdsale.abi = JSON.parse(_abi);
 
@@ -45,7 +45,7 @@ export class stepFive extends React.Component {
 			        $this.extractContractsData($this, state, web3);
 			      }
 			    });
-			    setFlatFileContentToState("./contracts/SampleCrowdsaleToken_flat.bin", function(_bin) {
+			    setFlatFileContentToState("./contracts/OraclesExtendedCrowdSaleToken_flat.bin", function(_bin) {
 			      derivativesIterator++;
 			      state.contracts.token.bin = _bin;
 
@@ -53,7 +53,7 @@ export class stepFive extends React.Component {
 			        $this.extractContractsData($this, state, web3);
 			      }
 			    });
-			    setFlatFileContentToState("./contracts/SampleCrowdsaleToken_flat.abi", function(_abi) {
+			    setFlatFileContentToState("./contracts/OraclesExtendedCrowdSaleToken_flat.abi", function(_abi) {
 			      derivativesIterator++;
 			      state.contracts.token.abi = JSON.parse(_abi);
 

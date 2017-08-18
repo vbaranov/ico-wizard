@@ -5,20 +5,23 @@ var addExtendedCode = require("./addExtendedCode.js");
 
 let args = process.argv.slice(2);
 let inputFilePath = args.length > 0?args[0]:"/out";
-let crowdsaleContractName = args.length > 1?args[1]:"";
-let tokenContractName = args.length > 2?args[2]:"";
-let outputFolder = args.length > 3?args[3]:"/out";
+let outputFolder = args.length > 1?args[1]:"/out";
+let extensionFilePath = args.length > 2?args[2]:"";
+let crowdsaleContractName = args.length > 3?args[3]:"";
+let tokenContractName = args.length > 4?args[4]:"";
 var targetContractNames = [crowdsaleContractName, tokenContractName];
+
+console.log(args);
 
 fs.readFile(inputFilePath, "utf8", function(err, content) {
 	if (err) {
 		return console.log(err.message);
 	}
-	addExtendedCode(content, function(err, contentUpdated) {
+	addExtendedCode(extensionFilePath, content, function(err, contentUpdated) {
 		if (err) {
 			return console.log(err.message);
 		}
-		var outputFilePath = inputFilePath.replace(pathLib.basename(inputFilePath), "Sample" + pathLib.basename(inputFilePath));
+		var outputFilePath = outputFolder + "/" + targetContractNames[0] + "_flat.sol";//.replace(pathLib.basename(inputFilePath), pathLib.basename(inputFilePath));
 		//test
 		//var contentUpdated = content;
 		//var outputFilePath = inputFilePath;

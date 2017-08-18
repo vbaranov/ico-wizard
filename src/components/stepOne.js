@@ -12,6 +12,7 @@ export class stepOne extends React.Component {
     super(props);
     let oldState = getOldState(props, defaultState)
     this.state = Object.assign({}, oldState)
+    console.log(this.state);
   }
 
   render() {

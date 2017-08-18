@@ -1,15 +1,15 @@
 /**
- * @title SampleCrowdsaleToken
+ * @title OraclesExtendedCrowdsaleToken
  * @dev Very simple ERC20 Token that can be minted.
  * It is meant to be used in a crowdsale contract.
  */
-contract SampleCrowdsaleToken is MintableToken {
+contract OraclesExtendedCrowdsaleToken is MintableToken {
   string public name;
   string public symbol;
   uint8 public decimals;
   uint256 public supply;
   
-  function SampleCrowdsaleToken(string _name, string _symbol, uint8 _decimals, uint256 _supply) {
+  function OraclesExtendedCrowdsaleToken(string _name, string _symbol, uint8 _decimals, uint256 _supply) {
       name = _name;
       symbol = _symbol;
       decimals = _decimals;
@@ -18,7 +18,7 @@ contract SampleCrowdsaleToken is MintableToken {
 }
 
 /**
- * @title SampleCrowdsale
+ * @title OraclesExtendedCrowdsale
  * @dev This is an example of a fully fledged crowdsale.
  * The way to add new features to a base crowdsale is by multiple inheritance.
  * In this example we are providing following extensions:
@@ -28,12 +28,12 @@ contract SampleCrowdsaleToken is MintableToken {
  * After adding multiple features it's good practice to run integration tests
  * to ensure that subcontracts works together as intended.
  */
-contract SampleCrowdsale is Crowdsale {
+contract OraclesExtendedCrowdsale is Crowdsale {
 
   uint256 public supply;
   uint256 public investors;
 
-  function SampleCrowdsale(uint256 _startBlock, uint256 _endBlock, uint256 _rate, address _wallet, uint256 _crowdsaleSupply, string _name, string _symbol, uint8 _decimals, uint256 _tokenSupply)
+  function OraclesExtendedCrowdsale(uint256 _startBlock, uint256 _endBlock, uint256 _rate, address _wallet, uint256 _crowdsaleSupply, string _name, string _symbol, uint8 _decimals, uint256 _tokenSupply)
     Crowdsale(_startBlock, _endBlock, _rate, _wallet)
   {
     investors = 0;
@@ -42,16 +42,16 @@ contract SampleCrowdsale is Crowdsale {
   }
 
   function createTokenContract(string _name, string _symbol, uint8 _decimals, uint256 _supply) internal returns (MintableToken) {
-    return new SampleCrowdsaleToken(_name, _symbol, _decimals, _supply);
+    return new OraclesExtendedCrowdsaleToken(_name, _symbol, _decimals, _supply);
   }
 
-  function buySampleTokens(address _sender) payable {
+  function buyTokensExtended(address _sender) payable {
     investors++;
     buyTokens(_sender);
   }
   
   function () payable {
-    buySampleTokens(msg.sender);
+    buyTokensExtended(msg.sender);
   }
 
 }

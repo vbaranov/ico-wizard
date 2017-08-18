@@ -35,15 +35,19 @@
   "config": {
     "contract_folder": "./public/contracts",
     "combine_solidity_script": "src/components/oracles-combine-solidity/index.js",
-    "zeppelin_path": "node_modules/zeppelin-solidity/contracts/crowdsale/"
+    "zeppelin_path": "node_modules/zeppelin-solidity/contracts/crowdsale/",
+    "extension_path": "./scripts/OraclesExtendedCrowdSale.sol",
+    "bonus_extension_path": "./scripts/OraclesExtendedCrowdSaleBonus.sol"
   },
   "scripts": {
-    "start": "npm run generateFlatSolidityContract && npm run compileContract && react-scripts start",
-    "build": "npm run generateFlatSolidityContract && npm run compileContract && git submodule update --init --recursive --remote && react-scripts build",
+    "start": "npm run generateFlatSolidityContract && npm run generateFlatSolidityBonusContract && npm run compileContract && npm run compileBonusContract && react-scripts start",
+    "build": "npm run generateFlatSolidityContract && npm run generateFlatSolidityBonusContract && npm run compileContract && npm run compileBonusContract && git submodule update --init --recursive --remote && react-scripts build",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject",
     "generateFlatSolidityContract": "node $npm_package_config_combine_solidity_script $npm_package_config_zeppelin_path/Crowdsale.sol $npm_package_config_contract_folder",
-    "compileContract": "node ./scripts/compileContract.js $npm_package_config_contract_folder/Crowdsale_flat.sol SampleCrowdsale SampleCrowdsaleToken $npm_package_config_contract_folder",
+    "generateFlatSolidityBonusContract": "node $npm_package_config_combine_solidity_script $npm_package_config_zeppelin_path/CrowdsaleExtensionWithExistedToken.sol $npm_package_config_contract_folder",
+    "compileContract": "node ./scripts/compileContract.js $npm_package_config_contract_folder/Crowdsale_flat.sol $npm_package_config_contract_folder $npm_package_config_extension_path OraclesExtendedCrowdsale OraclesExtendedCrowdsaleToken",
+    "compileBonusContract": "node ./scripts/compileContract.js $npm_package_config_contract_folder/CrowdsaleExtensionWithExistedToken_flat.sol $npm_package_config_contract_folder $npm_package_config_bonus_extension_path OraclesExtendedCrowdsaleBonus",
     "generateFlatSolidityCappedContract": "node $npm_package_config_combine_solidity_script $npm_package_config_zeppelin_path/CappedCrowdsale.sol $npm_package_config_contract_folder"
   }
 }

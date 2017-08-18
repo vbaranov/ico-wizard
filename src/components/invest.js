@@ -12,7 +12,7 @@ export class Invest extends React.Component {
       if (this.investToTokens.bind) this.investToTokens = this.investToTokens.bind(this);
       this.state = defaultState
       var state = this.state;
-      state.contracts = {"crowdsale": {}, "token": {}};
+      state.contracts = {"crowdsale": {}, "bonus": {}, "token": {}};
       state.crowdsale = {};
       state.token = {};
       state.seconds = 0;
@@ -35,9 +35,9 @@ export class Invest extends React.Component {
       checkNetWorkByID(web3, networkID);
       $this.state.contracts.crowdsale.addr = crowdsaleAddr;
 
-      var derivativesLength = 4;
+      var derivativesLength = 6;
       var derivativesIterator = 0;
-      setFlatFileContentToState("./contracts/SampleCrowdsale_flat.bin", function(_bin) {
+      setFlatFileContentToState("./contracts/OraclesExtendedCrowdSale_flat.bin", function(_bin) {
         derivativesIterator++;
         $this.state.contracts.crowdsale.bin = _bin;
 
@@ -45,7 +45,7 @@ export class Invest extends React.Component {
           $this.extractContractsData($this, web3);
         }
       });
-      setFlatFileContentToState("./contracts/SampleCrowdsale_flat.abi", function(_abi) {
+      setFlatFileContentToState("./contracts/OraclesExtendedCrowdsale_flat.abi", function(_abi) {
         derivativesIterator++;
         $this.state.contracts.crowdsale.abi = JSON.parse(_abi);
 
@@ -53,7 +53,23 @@ export class Invest extends React.Component {
           $this.extractContractsData($this, web3);
         }
       });
-      setFlatFileContentToState("./contracts/SampleCrowdsaleToken_flat.bin", function(_bin) {
+      setFlatFileContentToState("./contracts/OraclesExtendedCrowdsaleBonus_flat.bin", function(_bin) {
+        derivativesIterator++;
+        $this.state.contracts.bonus.bin = _bin;
+
+        if (derivativesIterator === derivativesLength) {
+          $this.extractContractsData($this, web3);
+        }
+      });
+      setFlatFileContentToState("./contracts/OraclesExtendedCrowdsaleBonus_flat.abi", function(_abi) {
+        derivativesIterator++;
+        $this.state.contracts.bonus.abi = JSON.parse(_abi);
+
+        if (derivativesIterator === derivativesLength) {
+          $this.extractContractsData($this, web3);
+        }
+      });
+      setFlatFileContentToState("./contracts/OraclesExtendedCrowdsaleToken_flat.bin", function(_bin) {
         derivativesIterator++;
         $this.state.contracts.token.bin = _bin;
 
@@ -61,7 +77,7 @@ export class Invest extends React.Component {
           $this.extractContractsData($this, web3);
         }
       });
-      setFlatFileContentToState("./contracts/SampleCrowdsaleToken_flat.abi", function(_abi) {
+      setFlatFileContentToState("./contracts/OraclesExtendedCrowdsaleToken_flat.abi", function(_abi) {
         derivativesIterator++;
         $this.state.contracts.token.abi = JSON.parse(_abi);
 
@@ -109,8 +125,12 @@ export class Invest extends React.Component {
         from: web3.eth.accounts[0],
         value: weiToSend
       };
+      console.log(opts);
 
-      attachToContract(web3, $this.state.contracts.crowdsale.abi, $this.state.contracts.crowdsale.addr, function(err, crowdsaleContract) {
+      console.log($this.state.contracts.crowdsale.abi);
+      console.log($this.state.contracts.crowdsale.addr);
+
+      attachToContract(web3, $this.state.contracts.bonus.abi, $this.state.contracts.crowdsale.addr, function(err, crowdsaleContract) {
         console.log("attach to crowdsale contract");
         if (err) return console.log(err);
         if (!crowdsaleContract) return noContractAlert();
@@ -118,7 +138,7 @@ export class Invest extends React.Component {
         console.log(crowdsaleContract);
         console.log(web3.eth.defaultAccount);
 
-        crowdsaleContract.buySampleTokens.sendTransaction(web3.eth.accounts[0], opts, function(err, txHash) {
+        crowdsaleContract.buyTokensExtended.sendTransaction(web3.eth.accounts[0], opts, function(err, txHash) {
           if (err) return console.log(err);
           
           console.log("txHash: " + txHash);

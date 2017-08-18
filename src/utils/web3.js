@@ -184,6 +184,18 @@ export function getCrowdsaleData(web3, $this) {
   });
 }
 
+export function getTokenAddr(web3, crowdSaleABI, crowdsaleAddr, cb) {
+  attachToContract(web3, crowdSaleABI, crowdsaleAddr, function(err, crowdsaleContract) {
+    console.log("attach to crowdsale contract");
+
+    crowdsaleContract.token.call(function(err, tokenAddr) {
+      if (err) return console.log(err);
+      
+      cb(tokenAddr);
+    });
+  });
+}
+
 function getTokenData(web3, $this) {
   attachToContract(web3, $this.state.contracts.token.abi, $this.state.contracts.token.addr, function(err, tokenContract) {
     console.log("attach to token contract");

@@ -1,6 +1,6 @@
 import React from 'react'
 import '../assets/stylesheets/application.css';
-import { deployContract, getWeb3, getNetworkVersion } from '../utils/web3'
+import { deployContract, getWeb3, getNetworkVersion, getTokenAddr } from '../utils/web3'
 import { noMetaMaskAlert } from '../utils/alerts'
 import { defaultState } from '../utils/constants'
 import { getOldState } from '../utils/utils'
@@ -35,10 +35,26 @@ export class stepFour extends stepTwo {
     let newState = { ...this.state }
     newState.contracts.crowdsale.addr = crowdsaleAddr;
     this.setState(newState);
+
+    getWeb3((web3) => {
+      getTokenAddr(web3, this.state.contracts.crowdsale.abi, this.state.contracts.crowdsale.addr, (tokenCntrctAddr) => {
+        console.log("tokenCntrctAddr: " + tokenCntrctAddr);
+        var paramsCrowdsaleBonus = this.getCrowdSaleBonusParams(web3, this.state.crowdsale, tokenCntrctAddr)
+        deployContract(web3, this.state.contracts.bonus.abi, this.state.contracts.bonus.bin, paramsCrowdsaleBonus, this.handleDeployedBonusContract)
+      });
+    })
+  }
+
+  handleDeployedBonusContract = (err, crowdsaleBonusAddr) => {
+    if (err) return console.log(err);
+    let newState = { ...this.state }
+    newState.contracts.bonus.addr = crowdsaleBonusAddr;
+    this.setState(newState);
+    console.log(this.state);
     let crowdsalePage = "/crowdsale";
     const {contracts} = this.state
     const isValidContract = contracts && contracts.crowdsale && contracts.crowdsale.addr
-    let newHistory = isValidContract ? crowdsalePage + `?addr=` + contracts.crowdsale.addr + `&networkID=` + contracts.crowdsale.networkID : crowdsalePage
+    let newHistory = isValidContract ? crowdsalePage + `?addr=` + contracts.crowdsale.addr + `&bonus=` + contracts.bonus.addr + `&networkID=` + contracts.crowdsale.networkID : crowdsalePage
     this.props.history.push(newHistory);
   }
 
@@ -53,6 +69,17 @@ export class stepFour extends stepTwo {
       this.state.token.ticker,
       parseInt(this.state.token.decimals, 10),
       parseInt(this.state.token.supply, 10)
+    ]
+  }
+
+  getCrowdSaleBonusParams = (web3, crowdsale, tokenCntrctAddr) => {
+    return [
+      parseInt(crowdsale.startBlock, 10), 
+      parseInt(crowdsale.endBlock, 10), 
+      web3.toWei(crowdsale.rate, "ether"), 
+      crowdsale.walletAddress,
+      parseInt(this.state.crowdsale.supply, 10),
+      tokenCntrctAddr
     ]
   }
 
