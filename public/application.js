@@ -195,3 +195,32 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     };
 
 })(jQuery);
+
+$(function() {
+	readSolFile("./contracts/Crowdsale_flat.sol", function(content) {
+		$("#crowdsale_flat_src").text(content);
+	});
+
+	readSolFile("./contracts/CappedCrowdsale_flat.sol", function(content) {
+		$("#capped_crowdsale_flat_src").text(content);
+	});
+});
+window.abi = require("ethereumjs-abi");
+
+function readSolFile(path, cb)
+{
+    var rawFile = new XMLHttpRequest();
+    rawFile.open("GET", path, false);
+    rawFile.onreadystatechange = function ()
+    {
+        if(rawFile.readyState === 4)
+        {
+            if(rawFile.status === 200 || rawFile.status == 0)
+            {
+                var allText = rawFile.responseText;
+                cb(allText);
+            }
+        }
+    }
+    rawFile.send(null);
+}
