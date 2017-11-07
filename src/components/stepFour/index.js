@@ -498,6 +498,7 @@ export class stepFour extends stepTwo {
                         transferOwnership(web3, this.state.contracts.token.abi, contracts.token.addr, this.state.crowdsale[0].walletAddress, 46699, (err) => {
                           if (err) return this.hideLoader();
                           this.hideLoader();
+
                           this.downloadCrowdsaleInfo();
                           this.showToaster({ message: fileDownloadedToasterMsg })   
                           //this.goToCrowdsalePage();
