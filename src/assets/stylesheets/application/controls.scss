@@ -1,4 +1,5 @@
 .button {
+  cursor: pointer;
   display: inline-block;
   transition: 0.3s background-color,
               0.3s color;
@@ -21,7 +22,36 @@
 
     &:hover {
       background-color: #34c3f8;
+      cursor: pointer;
     }
+  }
+
+  &_disabled {
+    background-color: #e6e6e6;
+    color: #9c9c9c;
+
+    &:hover {
+      cursor: default !important;
+    }
+  }
+
+  &_fill_secondary {
+    background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAMAAADXqc3KAAAAFVBMVEX///////////////////////////9nSIHRAAAABnRSTlMASUrk5udXTd49AAAAOUlEQVR42tXQsQEAIAgDQcAn+4+snRZxAK79KokrIcNBwgYdc0Migwxk8Qsd1TJWDf/KQWobqt+9G4coA99W7as5AAAAAElFTkSuQmCC) !important;
+    background-color: #64299D;
+    color: #fff;
+
+    &:hover {
+      background-color: #752fb6;
+    }
+    margin-right: 10px;
+  }
+
+  &_fill_plus {
+    background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAMAAADXqc3KAAAAFVBMVEX///////////////////////////9nSIHRAAAABnRSTlMASUrk5udXTd49AAAAOUlEQVR42tXQsQEAIAgDQcAn+4+snRZxAK79KokrIcNBwgYdc0Migwxk8Qsd1TJWDf/KQWobqt+9G4coA99W7as5AAAAAElFTkSuQmCC) !important;
+    width: 36px;
+    height: 36px;
+    padding-left: 0 !important;
+    background-position: center center !important;
   }
 
   &_outline {
@@ -33,6 +63,13 @@
       color: #fff;
     }
   }
+}
+
+.plus-button-container {
+  display: table-cell;
+  padding-left: 20px;
+  padding-top: 28.5px;
+  vertical-align: top;
 }
 
 .label {
@@ -58,5 +95,9 @@
 
   &:focus {
     border-color: #08b3f2;
+  }
+
+  &:disabled {
+    background: #f2f2f2; 
   }
 }

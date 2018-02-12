@@ -1,3 +1,12 @@
-[submodule "src/components/oracles-combine-solidity"]
-	path = src/components/oracles-combine-solidity
-	url = https://github.com/oraclesorg/oracles-combine-solidity
+[submodule "submodules/solidity-flattener"]
+	path = submodules/solidity-flattener
+	url = https://github.com/poanetwork/solidity-flattener
+	branch = master
+[submodule "submodules/poa-web3-1.0"]
+	path = submodules/poa-web3-1.0
+	url = https://github.com/poanetwork/web3.js
+	branch = 1.0
+[submodule "submodules/poa-token-market-net-ico"]
+	path = submodules/poa-token-market-net-ico
+	url = https://github.com/poanetwork/ico
+	branch = wizard
