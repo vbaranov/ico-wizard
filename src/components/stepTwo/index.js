@@ -4,13 +4,15 @@ import { Link } from 'react-router-dom'
 import { checkWeb3 } from '../../utils/blockchainHelpers'
 import { StepNavigation } from '../Common/StepNavigation'
 import { InputField } from '../Common/InputField'
+import { NumericInput } from '../Common/NumericInput'
 import { ReservedTokensInputBlock } from '../Common/ReservedTokensInputBlock'
 import { NAVIGATION_STEPS, VALIDATION_MESSAGES, TEXT_FIELDS, DESCRIPTION } from '../../utils/constants'
 import { inject, observer } from 'mobx-react';
+
 const { TOKEN_SETUP } = NAVIGATION_STEPS
 const { NAME, TICKER, DECIMALS } = TEXT_FIELDS
 
-@inject('tokenStore', 'web3Store', 'tierCrowdsaleListStore') @observer
+@inject('tokenStore', 'web3Store', 'tierCrowdsaleListStore', 'reservedTokenStore') @observer
 export class stepTwo extends Component {
   componentDidMount() {
     checkWeb3(this.props.web3Store.web3);
@@ -26,6 +28,10 @@ export class stepTwo extends Component {
     this.props.tokenStore.validateTokens(property);
   }
 
+  updateDecimalsStore = value => {
+    this.updateTokenStore({ target: { value } }, 'decimals')
+  }
+
   renderLink () {
     return <Link className="button button_fill" to='/3'>Continue</Link>
   }
@@ -37,13 +43,21 @@ export class stepTwo extends Component {
     return <div onClick={this.showErrorMessages.bind(this, 'token')} className="button button_fill"> Continue</div>
   }
 
-  render() {
+  removeReservedToken = index => {
+    this.props.reservedTokenStore.removeToken(index)
+  }
+
+  addReservedTokensItem = newToken => {
+    this.props.reservedTokenStore.addToken(newToken)
+  }
+
+  render () {
     return (
       <section className="steps steps_crowdsale-contract" ref="two">
         <StepNavigation activeStep={TOKEN_SETUP}/>
         <div className="steps-content container">
           <div className="about-step">
-            <div className="step-icons step-icons_token-setup"></div>
+            <div className="step-icons step-icons_token-setup"/>
             <p className="title">Token setup</p>
             <p className="description">
               Configure properties of your token. Created token contract will be ERC-20 compatible.
@@ -67,20 +81,24 @@ export class stepTwo extends Component {
               onChange={(e) => this.updateTokenStore(e, 'ticker')}
               description={`${DESCRIPTION.TOKEN_TICKER} There are 11,881,376 combinations for 26 english letters. Be hurry. `}
             />
-            <InputField
-              side='left' type='number'
-              errorMessage={VALIDATION_MESSAGES.DECIMALS}
-              valid={this.props.tokenStore.validToken['decimals']}
+            <NumericInput
+              side="left"
               title={DECIMALS}
-              value={this.props.tokenStore.decimals}
-              onChange={(e) => this.updateTokenStore(e, 'decimals')} // changeInputField
-              description={`Refers to how divisible a token can be, from 0 (not at all divisible) to 18 (pretty much continuous).`}
+              description="Refers to how divisible a token can be, from 0 (not at all divisible) to 18 (pretty much continuous)."
+              min={0}
+              max={18}
+              errorMessage={VALIDATION_MESSAGES.DECIMALS}
+              onValueUpdate={this.updateDecimalsStore}
             />
           </div>
           <div className="reserved-tokens-title">
             <p className="title">Reserved tokens</p>
           </div>
-          <ReservedTokensInputBlock />
+          <ReservedTokensInputBlock
+            tokens={this.props.reservedTokenStore.tokens}
+            addReservedTokensItem={this.addReservedTokensItem}
+            removeReservedToken={this.removeReservedToken}
+          />
         </div>
         <div className="button-container">
           {this.renderLinkComponent()}

@@ -14,7 +14,8 @@ import {
   notTheOwner
 } from '../../utils/alerts'
 import { getNetworkVersion, sendTXToContract, attachToContract, calculateGasLimit } from '../../utils/blockchainHelpers'
-import { getWhiteListWithCapCrowdsaleAssets, toast } from '../../utils/utils'
+import { toast } from '../../utils/utils'
+import { getWhiteListWithCapCrowdsaleAssets } from '../../stores/utils'
 import { getTiers, processTier, updateTierAttribute } from './utils'
 import { Loader } from '../Common/Loader'
 
@@ -25,7 +26,6 @@ const { START_TIME, END_TIME, RATE, SUPPLY, WALLET_ADDRESS, CROWDSALE_SETUP_NAME
   'web3Store',
   'tierStore',
   'contractStore',
-  'crowdsalePageStore',
   'generalStore',
   'tokenStore',
   'gasPriceStore'
@@ -453,6 +453,11 @@ export class Manage extends Component {
     }
   }
 
+  tierHasStarted = (index) => {
+    const initialTierValues = this.props.crowdsaleStore.selected.initialTiersValues[index]
+    return initialTierValues ? Date.now() > new Date(initialTierValues.startTime).getTime() : true
+  }
+
   tierHasEnded = (index) => {
     const initialTierValues = this.props.crowdsaleStore.selected.initialTiersValues[index]
     return initialTierValues && new Date(initialTierValues.endTime).getTime() <= Date.now()
@@ -541,7 +546,7 @@ export class Manage extends Component {
           errorMessage={VALIDATION_MESSAGES.EDITED_START_TIME}
           onChange={e => this.updateTierStore(e, 'startTime', index)}
           description={DESCRIPTION.START_TIME}
-          disabled={disabled}
+          disabled={disabled || this.tierHasStarted(index)}
         />
         <InputField
           side='right'
@@ -558,7 +563,7 @@ export class Manage extends Component {
     }
 
     const tierRateAndSupply = (tier, index) => {
-      const disabled = !this.state.ownerCurrentUser || !tier.updatable || this.tierHasEnded(index)
+      const disabled = !this.state.ownerCurrentUser || !tier.updatable || this.tierHasEnded(index) || this.tierHasStarted(index)
 
       return <div className='input-block-container'>
         <InputField
@@ -601,7 +606,7 @@ export class Manage extends Component {
                 {tierStartAndEndTime(tier, index)}
                 {tierRateAndSupply(tier, index)}
               </div>
-              {tier.whitelist.length ? this.renderWhitelistInputBlock(tier, index) : null}
+              {this.renderWhitelistInputBlock(tier, index)}
             </div>
           </div>
         ))}

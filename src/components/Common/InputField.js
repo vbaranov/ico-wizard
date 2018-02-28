@@ -23,7 +23,10 @@ export const InputField = props => {
         className="input"
         onBlur={props.onBlur}
         value={props.value}
+        style={props.style}
         onChange={props.onChange}
+        onKeyPress={props.onKeyPress}
+        onPaste={props.onPaste}
       />
       <p className="description">{props.description}</p>
       { props.pristine ? null : <p style={errorStyle}>{error}</p> }
