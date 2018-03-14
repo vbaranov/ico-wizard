@@ -1,17 +1,21 @@
 import { observable, action, computed } from 'mobx';
-import { VALIDATION_TYPES, defaultTiers } from '../utils/constants'
+import { VALIDATION_TYPES } from '../utils/constants'
 import {
-  validateName, validateTime, validateSupply, validateRate, validateAddress, validateLaterTime,
-  validateLaterOrEqualTime, validateTier, validateMinCap
+  validateTime,
+  validateSupply,
+  validateAddress,
+  validateLaterTime,
+  validateLaterOrEqualTime,
+  validateTier
 } from '../utils/utils'
 import autosave from './autosave'
 const { VALID, INVALID } = VALIDATION_TYPES
 
 class TierStore {
 
-  @observable tiers;
-  @observable validTiers;
-  @observable globalMinCap = '';
+  @observable tiers
+  @observable validTiers
+  @observable globalMinCap = ''
 
   constructor() {
     this.reset()
@@ -19,16 +23,8 @@ class TierStore {
   }
 
   @action reset = () => {
-    this.tiers = defaultTiers.slice()
-    this.validTiers = [{
-      name: 'VALIDATED',
-      walletAddress: 'VALIDATED',
-      rate: 'EMPTY',
-      supply: 'EMPTY',
-      startTime: 'VALIDATED',
-      endTime: 'VALIDATED',
-      updatable: "VALIDATED"
-    }]
+    this.tiers = []
+    this.validTiers = []
   }
 
   @action setGlobalMinCap = (minCap) => {
@@ -63,9 +59,6 @@ class TierStore {
 
   @action validateTiers = (property, index) => {
     switch (property){
-      case 'name':
-        this.validTiers[index][property] = validateName(this.tiers[index][property]) ? VALID : INVALID
-        break
       case 'tier':
         this.validTiers[index][property] = validateTier(this.tiers[index][property]) ? VALID : INVALID
         break
@@ -74,9 +67,6 @@ class TierStore {
         break
       case 'supply':
         this.validTiers[index][property] = validateSupply(this.tiers[index][property]) ? VALID : INVALID
-        break
-      case 'rate':
-        this.validTiers[index][property] = validateRate(this.tiers[index][property]) ? VALID : INVALID
         break
       case 'startTime':
         if (index > 0) {
@@ -91,6 +81,11 @@ class TierStore {
       default:
         // do nothing
     }
+  }
+
+  @action updateRate = (value, validity, tierIndex) => {
+    this.tiers[tierIndex].rate = value
+    this.validTiers[tierIndex].rate = validity
   }
 
   @action validateEditedTier = (property, index) => {
@@ -141,14 +136,13 @@ class TierStore {
       return;
     }
 
-    const isValid = validateMinCap(this.globalMinCap) && this.validTiers
-      .every((tier, index) => {
-        return Object.keys(tier)
-          .every((key) => {
-            console.log('key', key, this.validTiers[index][key])
-            return this.validTiers[index][key] === VALID
-          })
-      })
+    const isValid = this.validTiers.every((tier, index) => {
+      return Object.keys(tier)
+        .every((key) => {
+          console.log('key', key, this.validTiers[index][key])
+          return this.validTiers[index][key] === VALID
+        })
+    })
 
     console.log('isValid', isValid)
 
@@ -168,10 +162,33 @@ class TierStore {
     });
   }
 
-  @action removeWhiteListItem = (whitelistNum, crowdsaleNum) => {
+  @action addWhitelistItem = ({ addr, min, max }, crowdsaleNum) => {
+    const tier = this.tiers[crowdsaleNum]
+
+    const whitelist = tier.whitelist.slice()
+
+    const isAdded = whitelist.find(item => item.addr === addr && !item.deleted)
+
+    if (isAdded) return
+
+    const whitelistElements = tier.whitelistElements.slice()
+    const whitelistNum = whitelistElements.length
+
+    whitelistElements.push({ addr, min, max, whitelistNum, crowdsaleNum })
+    whitelist.push({ addr, min, max })
+
+    this.setTierProperty(whitelistElements, 'whitelistElements', crowdsaleNum)
+    this.setTierProperty(whitelist, 'whitelist', crowdsaleNum)
+  }
+
+  @action removeWhitelistItem = (whitelistNum, crowdsaleNum) => {
     let whitelist = this.tiers[crowdsaleNum].whitelist.slice()
     whitelist[whitelistNum].deleted = true
     this.setTierProperty(whitelist, 'whitelist', crowdsaleNum)
+  }
+
+  @computed get maxSupply () {
+    return this.tiers.map(tier => +tier.supply).reduce((a, b) => Math.max(a, b), 0)
   }
 }
 

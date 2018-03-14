@@ -127,12 +127,12 @@ export class Manage extends Component {
   }
 
   setCrowdsaleInfo = () => {
-    const { contractStore } = this.props
+    const { contractStore, crowdsaleStore } = this.props
     const lastCrowdsaleAddress = contractStore.crowdsale.addr.slice(-1)[0]
 
     return attachToContract(contractStore.crowdsale.abi, lastCrowdsaleAddress)
       .then(crowdsaleContract => crowdsaleContract.methods.endsAt().call())
-      .then(crowdsaleEndTime => this.setState({ crowdsaleHasEnded: crowdsaleEndTime * 1000 <= Date.now() }))
+      .then(crowdsaleEndTime => this.setState({ crowdsaleHasEnded: crowdsaleEndTime * 1000 <= Date.now() || crowdsaleStore.selected.finalized }))
   }
 
   shouldDistribute = () => {
@@ -193,15 +193,24 @@ export class Manage extends Component {
     const lastCrowdsaleAddress = contractStore.crowdsale.addr.slice(-1)[0]
 
     return attachToContract(contractStore.crowdsale.abi, lastCrowdsaleAddress)
-      .then(crowdsaleContract => crowdsaleContract.methods.isCrowdsaleFull().call())
-      .then(
-        (isCrowdsaleFull) => {
-          const { crowdsaleHasEnded, shouldDistribute, canDistribute } = this.state
-          const wasDistributed = shouldDistribute && !canDistribute
+      .then(crowdsaleContract => {
+        const whenIsFinalized = crowdsaleContract.methods.finalized().call()
+        const whenIsCrowdsaleFull = crowdsaleContract.methods.isCrowdsaleFull().call()
 
-          this.setState({
-            canFinalize: (crowdsaleHasEnded || isCrowdsaleFull) && (wasDistributed || !shouldDistribute)
-          })
+        return Promise.all([whenIsFinalized, whenIsCrowdsaleFull])
+      })
+      .then(
+        ([isFinalized, isCrowdsaleFull]) => {
+          if (isFinalized) {
+            this.setState({ canFinalize: false })
+          } else {
+            const { crowdsaleHasEnded, shouldDistribute, canDistribute } = this.state
+            const wasDistributed = shouldDistribute && !canDistribute
+
+            this.setState({
+              canFinalize: (crowdsaleHasEnded || isCrowdsaleFull) && (wasDistributed || !shouldDistribute)
+            })
+          }
         },
         () => this.setState({ canFinalize: false })
       )
@@ -293,9 +302,13 @@ export class Manage extends Component {
                     return sendTXToContract(finalizeMethod.send(opts))
                   })
                   .then(() => {
-                    successfulFinalizeAlert()
                     crowdsaleStore.setSelectedProperty('finalized', true)
-                    this.setState({ canFinalize: false })
+                    this.setState({ canFinalize: false }, () => {
+                      successfulFinalizeAlert().then(() => {
+                        this.setState({ loading: true })
+                        setTimeout(() => window.location.reload(), 500)
+                      })
+                    })
                   })
                   .catch((err) => {
                     console.log(err)
@@ -370,14 +383,6 @@ export class Manage extends Component {
       })
   }
 
-  changeState = (event, parent, key, property) => {
-    const { tierStore } = this.props
-    const whitelistInputProps = { ...tierStore.tiers[key].whitelistInput }
-    const prop = property.split('_')[1]
-    whitelistInputProps[prop] = event.target.value
-    tierStore.setTierProperty(whitelistInputProps, 'whitelistInput', key)
-  }
-
   clickedWhiteListInputBlock = e => {
     if (e.target.classList.contains('button_fill_plus')) {
       this.setState({ formPristine: false })
@@ -389,7 +394,6 @@ export class Manage extends Component {
       <WhitelistInputBlock
         key={index.toString()}
         num={index}
-        onChange={(e, contract, num, prop) => this.changeState(e, contract, num, prop)}
       />
     )
   }
@@ -455,7 +459,7 @@ export class Manage extends Component {
 
   tierHasStarted = (index) => {
     const initialTierValues = this.props.crowdsaleStore.selected.initialTiersValues[index]
-    return initialTierValues ? Date.now() > new Date(initialTierValues.startTime).getTime() : true
+    return initialTierValues && new Date(initialTierValues.startTime).getTime() < Date.now()
   }
 
   tierHasEnded = (index) => {
@@ -468,13 +472,17 @@ export class Manage extends Component {
     const { generalStore, tierStore, tokenStore, crowdsaleStore } = this.props
     const { address: crowdsaleAddress, finalized, updatable } = crowdsaleStore.selected
 
+    const canEditTier = ownerCurrentUser && !canDistribute && !canFinalize && !finalized
+
     const distributeTokensStep = (
       <div className="steps-content container">
         <div className="about-step">
           <div className="swal2-icon swal2-info warning-logo">!</div>
           <p className="title">Distribute reserved tokens</p>
           <p className="description">Reserved tokens distribution is the last step of the crowdsale before finalization.
-            You can make it only after the end of the last tier. If you reserved more then 100 addresses for your crowdsale, the distribution will be executed in batches with 100 reserved addresses per batch. Amount of batches is equal to amount of transactions</p>
+            You can make it after the end of the last tier or if hard cap is reached. If you reserved more then 100
+            addresses for your crowdsale, the distribution will be executed in batches with 100 reserved addresses per
+            batch. Amount of batches is equal to amount of transactions</p>
           <Link to='#' onClick={() => this.distributeReservedTokens(100)}>
             <span className={`button button_${!ownerCurrentUser || !canDistribute ? 'disabled' : 'fill'}`}>Distribute tokens</span>
           </Link>
@@ -520,21 +528,21 @@ export class Manage extends Component {
           side='left'
           type='text'
           title={CROWDSALE_SETUP_NAME}
-          value={tier.name}
-          disabled
+          value={tier.tier}
+          disabled={true}
         />
         <InputField
           side='right'
           type='text'
           title={WALLET_ADDRESS}
           value={tier.walletAddress}
-          disabled
+          disabled={true}
         />
       </div>
     }
 
     const tierStartAndEndTime = (tier, index) => {
-      const disabled = !this.state.ownerCurrentUser || !tier.updatable || this.tierHasEnded(index)
+      const disabled = !canEditTier || !tier.updatable || this.tierHasEnded(index)
 
       return <div className='input-block-container'>
         <InputField
@@ -563,7 +571,7 @@ export class Manage extends Component {
     }
 
     const tierRateAndSupply = (tier, index) => {
-      const disabled = !this.state.ownerCurrentUser || !tier.updatable || this.tierHasEnded(index) || this.tierHasStarted(index)
+      const disabled = !canEditTier || !tier.updatable || this.tierHasEnded(index) || this.tierHasStarted(index)
 
       return <div className='input-block-container'>
         <InputField

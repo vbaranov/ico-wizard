@@ -1,53 +1,31 @@
-export const defaultState = {
-  contracts: {
-    token: {},
-    crowdsale: {addr:[], abiConstructor:[]},
-    pricingStrategy: {addr:[], abiConstructor:[]},
-    multisig: {},
-    nullFinalizeAgent: {addr:[], abiConstructor:[]},
-    finalizeAgent: {addr:[], abiConstructor:[]},
-    tokenTransferProxy: {}
-  },
-  token: {
-    name: '',
-    ticker: '',
-    supply: 0,
-    decimals: '',
-    reservedTokens: [],
-    reservedTokensElements: [],
-    reservedTokensInput: {dim: "tokens"}
-  },
-  crowdsale: [{
-    startTime: '',
-    endTime: '',
-    walletAddress: '',
-    supply: '',
-    whitelist: [],
-    whitelistElements: [],
-    whitelistInput: {}
-  }],
-  pricingStrategy: [{rate: ''}],
-  blockTimeGeneration: 17,
-  compilerVersion: "0.4.11",
-  optimized: true,
-  contractName: "MintedTokenCappedCrowdsaleExt",
-  contractType: "white-list-with-cap",
-  contractTypes: {
-    standard: "standard",
-    capped: "capped",
-    whitelistwithcap: "white-list-with-cap"
-  }
+export const VALIDATION_TYPES = {
+  VALID: "VALIDATED",
+  EMPTY: 'EMPTY',
+  INVALID: 'INVALID'
 }
+const { VALID, EMPTY } = VALIDATION_TYPES
 
-export const defaultTiers = [{
+export const defaultTier = {
+  tier: '',
+  rate: '',
+  supply: '',
   startTime: '',
   endTime: '',
-  walletAddress: '',
-  supply: '',
+  updatable: 'off',
   whitelist: [],
-  whitelistElements: [],
-  whitelistInput: {}
-}]
+  whitelistElements: []
+}
+
+export const defaultTierValidations = {
+  tier: VALID,
+  rate: EMPTY,
+  supply: EMPTY,
+  startTime: VALID,
+  endTime: VALID,
+  updatable: VALID
+}
+
+export const defaultTiers = [defaultTier]
 
 export const CONTRACT_TYPES = {
   standard: "standard",
@@ -139,7 +117,7 @@ export const VALIDATION_MESSAGES = {
   EDITED_END_TIME: 'Please enter a valid date later than start time and previous than start time of next tier',
   EDITED_START_TIME: 'Please enter a valid date later than now, less than end time and later than the end time of the previous tier',
   RATE: 'Please enter a valid number greater than 0',
-  MINCAP: 'Please enter a valid number greater than 0'
+  MINCAP: 'Value must be positive, decimals should not exceed the amount of decimals specified and min cap should be less or equal than the supply of some tier'
 }
 
 //descriptions of input fields
@@ -174,13 +152,6 @@ export const TEXT_FIELDS = {
   ENABLE_WHITELISTING: 'Enable whitelisting',
   GAS_PRICE: 'Gas Price'
 }
-
-export const VALIDATION_TYPES = {
-  VALID: "VALIDATED",
-  EMPTY: 'EMPTY',
-  INVALID: 'INVALID'
-}
-const { VALID, EMPTY } = VALIDATION_TYPES
 
 export const intitialStepTwoValidations = {
   validations: {

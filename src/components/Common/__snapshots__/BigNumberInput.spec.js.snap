@@ -1,13 +1,13 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`NumericInput Should render the component 1`] = `
+exports[`BigNumberInput Should render the component 1`] = `
 <div
   className="left"
 >
   <label
     className="label"
   >
-    Decimals
+    Rate
   </label>
   <input
     className="input"
@@ -17,13 +17,13 @@ exports[`NumericInput Should render the component 1`] = `
     onKeyPress={[Function]}
     onPaste={[Function]}
     style={undefined}
-    type="number"
+    type="text"
     value=""
   />
   <p
     className="description"
   >
-    Refers to how divisible a token can be, from 0 (not at all divisible) to 18 (pretty much continuous).
+    Exchange rate Ethereum to Tokens. If it's 100, then for 1 Ether you can buy 100 tokens
   </p>
   <p
     style={

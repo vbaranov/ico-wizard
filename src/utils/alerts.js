@@ -54,14 +54,6 @@ export function successfulInvestmentAlert(tokensToInvest) {
   });
 }
 
-export function investmentDisabledAlert(startBlock, curBlock) {
-  sweetAlert2({
-    title: "Warning",
-    html: "Wait, please. Crowdsale company hasn't started yet. It'll start from <b>" + startBlock + "</b> block. Current block is <b>" + curBlock + "</b>.",
-    type: "warning"
-  });
-}
-
 export function investmentDisabledAlertInTime(startTime) {
   sweetAlert2({
     title: "Warning",
@@ -130,7 +122,7 @@ export function warningOnFinalizeCrowdsale() {
 }
 
 export function successfulFinalizeAlert() {
-  sweetAlert2({
+  return sweetAlert2({
     title: "Success",
     html: "Congrats! You've successfully finalized the Crowdsale!",
     type: "success"
@@ -211,5 +203,12 @@ export function skippingTransaction() {
     cancelButtonText: "No",
     confirmButtonText: "Yes",
     reverseButtons: true
+  })
+}
+export function whitelistImported(count) {
+  return sweetAlert2({
+    title: 'Addresses imported',
+    html: `${count} addresses were added to the whitelist`,
+    type: 'info'
   })
 }
