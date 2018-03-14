@@ -127,7 +127,7 @@
     "test": "npm run test:e2e && bash ./start_testrpc.sh && cd ./submodules/poa-token-market-net-ico/ && npm install && node_modules/.bin/truffle migrate --network testrpc && node_modules/.bin/truffle test --network testrpc",
     "test:dapp": "jest --env=jsdom",
     "start-background": "npm run installWeb3 && npm run generateContracts && npm run compileContracts",
-    "start-background-2": "PORT=3000 BROWSER=none node index.js &",
+    "start-background-2": "PORT=3000 BROWSER=none node scripts/start.js &",
     "test:e2e": "npm run start-background && npm run start-background-2 && node ./scripts/test3 && bash ./scripts/test2 && cd submodules/token-wizard-test-automation && npm i && npm run test1",
     "coveralls": "jest --env=jsdom --coverage && cat coverage/lcov.info | coveralls",
     "generateContracts": "npm run generateFlatSoliditySafeMathLibContract && npm run generateFlatSolidityCrowdsaleNullFinalizeAgentContract && npm run generateFlatSolidityCrowdsaleFinalizeAgentContract && npm run generateFlatSolidityCrowdsaleContract && npm run generateFlatSolidityCrowdsaleTokenContract && npm run generateFlatSolidityCrowdsalePricingStrategyContract && npm run generateFlatSolidityRegistryContract",

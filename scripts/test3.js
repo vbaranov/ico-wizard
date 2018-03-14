@@ -1,1 +1,1 @@
-setTimeout(function() {},10000)
+setTimeout(function() {},30000)
