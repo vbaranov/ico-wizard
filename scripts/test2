@@ -1,3 +1,0 @@
-#!/bin/bash
-
-cmd=$(curl localhost:3000)
