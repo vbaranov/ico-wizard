@@ -167,7 +167,7 @@ export class stepThree extends React.Component {
 
             if (hasWhitelist) {
               whitelistCount = tierStore.tiers.reduce((total, tier) => {
-                total += tier.whitelist.filter(address => !address.deleted).length
+                total += tier.whitelist.length
                 return total
               }, 0)
             }
@@ -339,7 +339,7 @@ export class stepThree extends React.Component {
             description="Minimum amount tokens to buy. Not a minimal size of a transaction. If minCap is 1 and user
              bought 1 token in a previous transaction and buying 0.1 token it will allow him to buy."
             disabled={tierStore.tiers[0] && tierStore.tiers[0].whitelistEnabled === "yes"}
-            min={this.props.tokenStore.decimals ? Number(`1e-${this.props.tokenStore.decimals}`) : 1}
+            min={0}
             acceptFloat={!!this.props.tokenStore.decimals}
             maxDecimals={this.props.tokenStore.decimals}
             value={this.state.minCap}
