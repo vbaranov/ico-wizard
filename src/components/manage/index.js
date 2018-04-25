@@ -322,7 +322,7 @@ export class Manage extends Component {
                   .then(account => {
                     const methodInterface = ["bytes"]
                     let paramsToExec = [methodInterface]
-                    const method = methodToExec(`finalizeCrowdsale(${methodInterface.join(',')})`, "crowdsaleConsole", this.getFinalizeCrowdsaleParams, paramsToExec)
+                    const method = methodToExec(`finalizeCrowdsaleAndToken(${methodInterface.join(',')})`, "tokenConsole", this.getFinalizeCrowdsaleParams, paramsToExec)
 
                     let opts = {
                       gasPrice: this.props.generalStore.gasPrice,
