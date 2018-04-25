@@ -66,6 +66,8 @@ export let getCrowdsaleData = (initCrowdsaleContract, execID, account, isMintedC
       reject('no contract')
     }
 
+    console.log(initCrowdsaleContract)
+
     let registryStorageObj = toJS(contractStore.registryStorage)
 
     let getCrowdsaleInfo = initCrowdsaleContract.methods.getCrowdsaleInfo(registryStorageObj.addr, execID).call();
