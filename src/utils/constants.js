@@ -109,7 +109,20 @@ export const VALIDATION_MESSAGES = {
   EDITED_END_TIME: 'Please enter a valid date later than start time and previous than start time of next tier',
   EDITED_START_TIME: 'Please enter a valid date later than now, less than end time and later than the end time of the previous tier',
   RATE: 'Please enter a valid number greater than 0',
-  MINCAP: 'Value must be positive, decimals should not exceed the amount of decimals specified and min cap should be less or equal than the supply of some tier'
+  MINCAP: 'Value must be positive, decimals should not exceed the amount of decimals specified and min cap should be less or equal than the supply of some tier',
+  POSITIVE: 'Please enter a valid number greater than 0',
+  NON_NEGATIVE: 'Please enter a valid number greater or equal than 0',
+  ADDRESS: 'Please enter a valid address',
+  REQUIRED: 'This field is required',
+  DECIMAL_PLACES: 'Decimals should not exceed the amount of decimals specified',
+  LESS_OR_EQUAL: 'Should be less or equal than the specified value',
+  GREATER_OR_EQUAL: 'Should be greater or equal than the specified value',
+  INTEGER: 'Should be integer',
+  DATE_IN_FUTURE: 'Should be set in the future',
+  DATE_IS_PREVIOUS: 'Should be previous than specified time',
+  DATE_IS_SAME_OR_LATER: 'Should be same or later than specified time',
+  DATE_IS_LATER: 'Should be later than specified time',
+  DATE_IS_SAME_OR_PREVIOUS: 'Should be same or previous than specified time',
 }
 
 //descriptions of input fields
@@ -196,53 +209,24 @@ export const FILE_CONTENTS = {
     { field: 'rate', value: 'Crowdsale rate: ', parent: 'tierStore' },
     { field: 'startTime', value: 'Crowdsale start time: ', parent: 'tierStore' },
     { field: 'endTime', value: 'Crowdsale end time: ', parent: 'tierStore' },
-    { value: 'Compiler Version: ', parent: 'none', fileValue: '0.4.11' },
-    { value: 'Is optimization enabled?: ', parent: 'none', fileValue: 'true' },
     { value: '*****************************', parent: 'none', fileValue: '' }
   ],
   files: {
     order: [
-      'token',
       'crowdsale'
     ],
-    token: {
-      name: 'CrowdsaleTokenExt',
-      txt: [
-        { value: 'Token contract name: ', parent: 'none', fileValue: 'CrowdsaleTokenExt' },
-        { field: 'addr', value: 'Token contract address: ', parent: 'contracts', child: 'token' },
-        { value: '*****************************', parent: 'none', fileValue: '' },
-        { field: 'abi', value: '****Token contract ABI:**** \n\n', parent: 'contracts', child: 'token' },
-        {
-          field: 'abiConstructor',
-          value: '****Token contract ABI encoded constructor arguments',
-          parent: 'contracts',
-          child: 'token'
-        }
-      ],
-      sol: { field: 'src', value: '****Token contract source:**** \n\n', parent: 'contracts', child: 'token' }
-
-    },
     crowdsale: {
-      name: 'MintedTokenCappedCrowdsaleExt',
+      name: 'MintedCappedCrowdsale',
       txt: [
-        { value: 'Crowdsale contract name: ', parent: 'none', fileValue: 'MintedTokenCappedCrowdsaleExt' },
-        { field: 'addr', value: 'Crowdsale contract address', parent: 'contracts', child: 'crowdsale' },
-        { value: '*****************************', parent: 'none', fileValue: '' },
-        { field: 'abi', value: '****Crowdsale contract ABI:**** \n\n', parent: 'contracts', child: 'crowdsale' },
-        {
-          field: 'abiConstructor',
-          value: '****Crowdsale contract ABI encoded constructor arguments',
-          parent: 'contracts',
-          child: 'crowdsale'
-        }
-      ],
-      sol: { field: 'src', value: '****Crowdsale contract source:**** \n\n', parent: 'contracts', child: 'crowdsale' }
-
+        { value: 'Auth_os application name: ', parent: 'none', fileValue: 'MintedCappedCrowdsale' },
+        { field: 'execID', value: 'Auth_os execution ID: ', parent: 'crowdsale' },
+        { value: '*****************************', parent: 'none', fileValue: '' }
+      ]
     }
   }
 }
 
-export const DOWNLOAD_NAME = 'icowizard'
+export const DOWNLOAD_NAME = 'tokenwizard'
 export const DOWNLOAD_TYPE = {
   text: 'text/plain',
   blob: 'blob'
@@ -277,6 +261,8 @@ export const TX_STEP_DESCRIPTION = {
   token: "Initialize Token",
   //registerCrowdsaleAddress: "Associate Crowdsale address to current account",
   setReservedTokens: "Register addresses for Reserved Tokens",
+  updateGlobalMinContribution: "Update global minimum contribution",
+  createCrowdsaleTiers: "Add tiers to Crowdsale",
   whitelist: "Register whitelisted addresses",
   crowdsaleInit: "Initialize Crowdsale",
 }

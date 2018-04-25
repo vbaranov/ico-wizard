@@ -256,47 +256,45 @@ export function attachToContract (abi, addr) {
     })
 }
 
-export function getRegistryAddress () {
-  const { web3 } = web3Store
-
-  return web3.eth.net.getId()
-    .then(networkID => {
-      const registryAddressMap = JSON.parse(process.env['REACT_APP_REGISTRY_ADDRESS'] || '{}')
-      return registryAddressMap[networkID]
-    })
-}
-
-function getRegistryAbi () {
-  return fetchFile('./contracts/Registry_flat.abi')
-}
-
-function getRegistryContract () {
-  // Get Registry ABI and address
-  const whenRegistryAbi = getRegistryAbi().then(JSON.parse)
-  const whenRegistryAddress = getRegistryAddress()
-
-  // Load Registry contract
-  return Promise.all([whenRegistryAbi, whenRegistryAddress])
-    .then(([abi, address]) => attachToContract(abi, address))
-}
-
 export function loadRegistryAddresses () {
   const { web3 } = web3Store
-  const whenRegistryContract = getRegistryContract()
+  const whenScriptExecContract = attachToSpecificCrowdsaleContract("scriptExec")
   const whenAccount = web3.eth.getAccounts()
     .then((accounts) => accounts[0])
 
-  return Promise.all([whenRegistryContract, whenAccount])
-    .then(([registry, account]) => {
-      return registry.methods.count(account).call()
-        .then((count) => {
-          const crowdsales = []
-
-          for (let i = 0; i < +count; i++) {
-            crowdsales.push(registry.methods.deployedContracts(account, i).call())
-          }
-
+  return Promise.all([whenScriptExecContract, whenAccount])
+    .then(([scriptExecContract, account]) => {
+      console.log("scriptExecContract:", scriptExecContract)
+      let promises = [];
+      const crowdsales = []
+      //to do: length of applications
+      for (let i = 0; i < 100; i++) {
+        let promise = new Promise((resolve, reject) => {
+          scriptExecContract.methods.deployer_instances(account, i).call()
+          .then((deployer_instance) => {
+            console.log("deployer_instance:", deployer_instance)
+            let appName = web3.utils.toAscii(deployer_instance.app_name)
+            if (appName.toString().toLowerCase().includes(process.env[`REACT_APP_CROWDSALE_APP_NAME`].toString().toLowerCase())) {
+              crowdsales.push(deployer_instance.exec_id)
+            }
+            resolve();
+          })
+          .catch((err) => {
+            resolve();
+          })
+        })
+        promises.push(promise)
+      }
+      return Promise.all(promises)
+        .then(() => {
           return Promise.all(crowdsales)
+          return scriptExecContract.methods.deployer_instances(account, 0).call()
+            .then((deployer_instance) => {
+              console.log("deployer_instance:", deployer_instance)
+              const crowdsales = []
+              crowdsales.push(deployer_instance.exec_id)
+              return Promise.all(crowdsales)
+            })
         })
     })
     .then(crowdsales => {
@@ -319,19 +317,19 @@ export let getCurrentAccount = () => {
   });
 }
 
-export let attachToInitCrowdsaleContract = () => {
+export let attachToSpecificCrowdsaleContract = (contractName) => {
   return new Promise((resolve, reject) => {
     console.log(contractStore)
-    console.log(toJS(contractStore.initCrowdsale))
+    console.log(toJS(contractStore[contractName]))
 
-    let initCrowdsaleObj = toJS(contractStore.initCrowdsale)
-    console.log(initCrowdsaleObj)
-    console.log(initCrowdsaleObj.abi)
-    console.log(initCrowdsaleObj.addr)
+    let contractObj = toJS(contractStore[contractName])
+    console.log(contractObj)
+    //console.log(contractObj.abi)
+    //console.log(contractObj.addr)
 
-    attachToContract(initCrowdsaleObj.abi, initCrowdsaleObj.addr)
+    attachToContract(contractObj.abi, contractObj.addr)
       .then(initCrowdsaleContract => {
-        console.log('attach to initCrowdsale contract')
+        console.log(`attach to ${contractName} contract`)
 
         if (!initCrowdsaleContract) {
           noContractAlert()
@@ -351,9 +349,10 @@ export let methodToExec = (methodName, targetName, getEncodedParams, params) => 
   let methodSignature = web3.eth.abi.encodeFunctionSignature(methodName);
   console.log(`methodSignature ${methodName}:`, methodSignature);
 
-  let encodedParameters = web3.eth.abi.encodeParameters(["bytes"], [methodParams]);
+  //let encodedParameters = web3.eth.abi.encodeParameters(["bytes"], [methodParams]);
+  //let fullData = methodSignature + encodedParameters.substr(2);
 
-  let fullData = methodSignature + encodedParameters.substr(2);
+  let fullData = methodSignature + methodParams.substr(2);
   console.log("full calldata:", fullData);
 
   const abiScriptExec = contractStore.scriptExec.abi || []
@@ -385,9 +384,10 @@ export let methodToInitAppInstance = (methodName, targetName, getEncodedParams, 
   let methodSignature = web3.eth.abi.encodeFunctionSignature(methodName);
   console.log(`methodSignature ${methodName}:`, methodSignature);
 
-  let encodedParameters = web3.eth.abi.encodeParameters(["bytes"], [methodParams]);
+  // let encodedParameters = web3.eth.abi.encodeParameters(["bytes"], [methodParams]);
+  // let fullData = methodSignature + encodedParameters.substr(2);
 
-  let fullData = methodSignature + encodedParameters.substr(2);
+  let fullData = methodSignature + methodParams.substr(2);
   console.log("full calldata:", fullData);
 
   const abiScriptExec = contractStore.scriptExec.abi || []
@@ -399,8 +399,11 @@ export let methodToInitAppInstance = (methodName, targetName, getEncodedParams, 
 
   const isPayable = true;
 
+  let appNameBytes = web3.utils.fromAscii(process.env['REACT_APP_CROWDSALE_APP_NAME'])
+  let encodedAppName = web3.eth.abi.encodeParameter("bytes32", appNameBytes);
+
   let paramsToInitAppInstance = [
-    web3.utils.sha3("MintedCappedCrowdsale"),
+    encodedAppName,
     isPayable,
     fullData
   ]

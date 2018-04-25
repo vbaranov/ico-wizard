@@ -5,14 +5,53 @@ import CrowdsalesList from '../Common/CrowdsalesList'
 import { Loader } from '../Common/Loader'
 import { loadRegistryAddresses } from '../../utils/blockchainHelpers'
 import { ModalContainer } from '../Common/ModalContainer'
+import { toast } from '../../utils/utils';
+import { TOAST } from '../../utils/constants';
+import { inject, observer } from 'mobx-react';
+import { checkWeb3, getNetworkVersion, } from '../../utils/blockchainHelpers'
+import { getWhiteListWithCapCrowdsaleAssets } from '../../stores/utils'
 
+const DOWNLOAD_STATUS = {
+  PENDING: 'pending',
+  SUCCESS: 'success',
+  FAILURE: 'failure'
+}
+
+@inject('web3Store', 'generalStore') @observer
 export class Home extends Component {
   constructor (props) {
     super(props)
     this.state = {
       showModal: false,
-      loading: false
+      loading: false,
+      contractsDownloaded: DOWNLOAD_STATUS.PENDING
     }
+  }
+
+  componentDidMount() {
+    let { generalStore,web3Store } = this.props;
+    checkWeb3(web3Store.web3);
+
+    getNetworkVersion().then(networkID => {
+      generalStore.setProperty('networkID', networkID)
+      getWhiteListWithCapCrowdsaleAssets(networkID)
+    }).then(
+        () => {
+          this.setState({
+            contractsDownloaded: DOWNLOAD_STATUS.SUCCESS
+          })
+        },
+        (e) => {
+          console.error('Error downloading contracts', e)
+          toast.showToaster({
+            type: TOAST.TYPE.ERROR,
+            message: 'The contracts could not be downloaded.Please try to refresh the page. If the problem persists, try again later.'
+          })
+          this.setState({
+            contractsDownloaded: DOWNLOAD_STATUS.FAILURE
+          })
+        }
+      )
   }
 
   chooseContract = () => {
@@ -50,12 +89,12 @@ export class Home extends Component {
             <div className="container">
               <h1 className="title">Welcome to Token Wizard</h1>
               <p className="description">
-              Token Wizard is a client side tool to create token and crowdsale contracts in five steps. It helps you to publish contracts on the Ethereum network, verify them in Etherscan, create a crowdsale page with stats. For participants, the wizard creates a page to invest into the campaign.
-              <br/>Smart contracts based on <a href="https://github.com/TokenMarketNet/ico">TokenMarket</a> contracts.
+              Token Wizard is a client side tool to create ERC20 token and crowdsale in five steps. It helps you to publish contracts on the Ethereum network, create a crowdsale page with stats. For participants, the wizard creates a page to contribute into the campaign.
+              <br/>Token Wizard is powered by <a href="https://github.com/auth-os/beta">Auth_os</a>.
               </p>
               <div className="buttons">
                 <Link to='/1'><span className="button button_fill">New crowdsale</span></Link>
-                <div onClick={() => this.chooseContract()} className="button button_outline">Choose Contract</div>
+                <div onClick={() => this.chooseContract()} className="button button_outline">Choose Crowdsale</div>
               </div>
             </div>
           </div>
@@ -86,7 +125,7 @@ export class Home extends Component {
                 <div className="step-icons step-icons_publish"></div>
                 <p className="title">Publish</p>
                 <p className="description">
-                  Get generated code and artifacts for verification in Etherscan
+                  Get artifacts to interact with Auth_os framework
                 </p>
               </div>
               <div className="process-item">

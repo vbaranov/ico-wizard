@@ -4,10 +4,9 @@ import {
   getCurrentAccount,
   checkNetWorkByID,
   checkWeb3,
-  attachToInitCrowdsaleContract
+  attachToSpecificCrowdsaleContract
 } from '../../utils/blockchainHelpers'
 import {
-  getAccumulativeCrowdsaleData,
   getContractStoreProperty,
   getCrowdsaleData,
   getTokenData,
@@ -85,8 +84,7 @@ export class Crowdsale extends React.Component {
 
     getCurrentAccount()
       .then(account => {
-
-        attachToInitCrowdsaleContract()
+        attachToSpecificCrowdsaleContract("initCrowdsale")
           .then((initCrowdsaleContract) => {
             this.getFullCrowdsaleData(initCrowdsaleContract, crowdsaleExecID, account)
               .then(() => this.setState({ loading: false }))
@@ -112,9 +110,6 @@ export class Crowdsale extends React.Component {
 
     return Promise.all([whenTokenData, whenCrowdsaleData])
       .then(() => initializeAccumulativeData())
-      .then(() => {
-        return getAccumulativeCrowdsaleData(initCrowdsaleContract, crowdsaleExecID)
-      })
       .then(() => {
         this.setState({ loading: false })
       })
@@ -143,7 +138,6 @@ export class Crowdsale extends React.Component {
     const { web3Store, tokenStore, crowdsalePageStore } = this.props
     const { web3 } = web3Store
 
-    //const tokenAddr = getContractStoreProperty('token','addr')
     const crowdsaleExecID = getContractStoreProperty('crowdsale','execID')
     const investorsCount = crowdsalePageStore.investors ? crowdsalePageStore.investors.toString() : 0
 

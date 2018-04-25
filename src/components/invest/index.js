@@ -5,15 +5,13 @@ import {
   checkTxMined,
   sendTXToContract,
   calculateGasLimit,
-  attachToInitCrowdsaleContract,
+  attachToSpecificCrowdsaleContract,
   methodToExec
 } from '../../utils/blockchainHelpers'
 import {
-  getAccumulativeCrowdsaleData,
   getTokenData,
   getCrowdsaleData,
   getCrowdsaleTargetDates,
-  getCurrentRate,
   initializeAccumulativeData,
   isFinalized,
   toBigNumber
@@ -34,7 +32,10 @@ import QRPaymentProcess from './QRPaymentProcess'
 import CountdownTimer from './CountdownTimer'
 import classNames from 'classnames'
 import moment from 'moment'
-import { toJS } from 'mobx'
+import { BigNumber } from 'bignumber.js'
+import { Form } from 'react-final-form'
+import { InvestForm } from './InvestForm'
+import { generateContext } from '../stepFour/utils'
 
 @inject(
   'contractStore',
@@ -44,8 +45,7 @@ import { toJS } from 'mobx'
   'tokenStore',
   'generalStore',
   'investStore',
-  'gasPriceStore',
-  'generalStore'
+  'gasPriceStore'
 )
 @observer
 export class Invest extends React.Component {
@@ -119,6 +119,7 @@ export class Invest extends React.Component {
       .then(account => {
         console.log("crowdsaleExecID:", crowdsaleExecID)
         contractStore.setContractProperty('crowdsale', 'execID', crowdsaleExecID)
+        contractStore.setContractProperty('crowdsale', 'account', account)
 
         this.setState({
           curAddr: account,
@@ -130,15 +131,14 @@ export class Invest extends React.Component {
           return
         }
 
-        attachToInitCrowdsaleContract()
+        attachToSpecificCrowdsaleContract("initCrowdsale")
           .then((initCrowdsaleContract) => {
             initializeAccumulativeData()
             .then(() => {
-              let whenTokenData = getTokenData(initCrowdsaleContract, crowdsaleExecID)
-              let whenCrowdsaleData = getCrowdsaleData(initCrowdsaleContract, crowdsaleExecID)
+              let whenTokenData = getTokenData(initCrowdsaleContract, crowdsaleExecID, account)
+              let whenCrowdsaleData = getCrowdsaleData(initCrowdsaleContract, crowdsaleExecID, account)
               return Promise.all([whenTokenData, whenCrowdsaleData])
             })
-              .then(() => getAccumulativeCrowdsaleData(initCrowdsaleContract, crowdsaleExecID))
               .then(() => getCrowdsaleTargetDates(initCrowdsaleContract, crowdsaleExecID))
               .then(() => this.checkIsFinalized(initCrowdsaleContract, crowdsaleExecID))
               .then(() => this.setTimers())
@@ -216,12 +216,10 @@ export class Invest extends React.Component {
     if (this.state.timeInterval) clearInterval(this.state.timeInterval)
   }
 
-  investToTokens = event => {
+  investToTokens = () => {
     const { investStore, crowdsalePageStore, web3Store } = this.props
     const { startDate } = crowdsalePageStore
     const { web3 } = web3Store
-
-    event.preventDefault()
 
     if (!this.isValidToken(investStore.tokensToInvest)) {
       this.setState({ pristineTokenInput: false })
@@ -253,69 +251,44 @@ export class Invest extends React.Component {
 
     getCurrentAccount()
       .then(account => {
-        attachToInitCrowdsaleContract()
-          .then((initCrowdsaleContract) => {
-            this.investToTokensForWhitelistedCrowdsaleInternal(initCrowdsaleContract, account)
-          })
+        this.investToTokensForWhitelistedCrowdsaleInternal(account)
       })
-
-    /*findCurrentContractRecursively(0, null, (crowdsaleContract, tierNum) => {
-      if (!crowdsaleContract) {
-        this.setState({ loading: false })
-        return
-      }
-
-      getCurrentRate(crowdsaleContract)
-        .then(() => web3.eth.getAccounts())
-        .then((accounts) => this.investToTokensForWhitelistedCrowdsaleInternal(crowdsaleContract, tierNum, accounts))
-        .catch(console.log)
-    })*/
   }
 
-  getBuyParams = (account, weiToSend) => {
+  getBuyParams = (weiToSend, methodInterface) => {
     const { web3Store } = this.props
     const { web3 } = web3Store
-    console.log(this.state.crowdsaleExecID)
-    console.log(account)
-    console.log(weiToSend)
-    let paramsBuy = [this.state.crowdsaleExecID, account, weiToSend];
-    console.log(paramsBuy);
-    let encodedParameters = web3.eth.abi.encodeParameters(["bytes32","address","uint256"], paramsBuy);
+    let context = generateContext(weiToSend);
+    let encodedParameters = web3.eth.abi.encodeParameters(methodInterface, [context]);
     return encodedParameters;
+    //return context;
   }
 
-  investToTokensForWhitelistedCrowdsaleInternal = (initCrowdsaleContract, account) => {
-    const { web3Store, contractStore, tokenStore, crowdsalePageStore, investStore, generalStore } = this.props
-    const { web3 } = web3Store
+  investToTokensForWhitelistedCrowdsaleInternal = (account) => {
+    const { tokenStore, crowdsalePageStore, investStore, generalStore } = this.props
 
-    let nextTiers = [""]
-    /*for (let i = tierNum + 1; i < contractStore.crowdsale.execID.length; i++) {
-      nextTiers.push(contractStore.crowdsale.execID[i])
-    }*/
-    console.log('nextTiers:', nextTiers)
-    console.log(nextTiers.length)
+    const decimals = new BigNumber(tokenStore.decimals)
+    console.log('decimals:', decimals.toFixed())
 
-    const decimals = parseInt(tokenStore.decimals, 10)
-    console.log('decimals:', decimals)
+    const rate = new BigNumber(crowdsalePageStore.rate) //it is from contract. It is already in wei. How much 1 token costs in wei.
+    console.log('rate:', rate.toFixed())
 
-    const rate = parseInt(crowdsalePageStore.rate, 10) //it is from contract. It is already in wei. How much 1 token costs in wei.
-    console.log('rate:', rate)
+    const tokensToInvest = new BigNumber(investStore.tokensToInvest)
+    console.log('tokensToInvest:', tokensToInvest.toFixed())
 
-    const tokensToInvest = parseFloat(investStore.tokensToInvest)
-    console.log('tokensToInvest:', tokensToInvest)
-
-    const weiToSend = parseInt(tokensToInvest * rate, 10)
-    console.log('weiToSend:', weiToSend)
+    const weiToSend = tokensToInvest.multipliedBy(rate)
+    console.log('weiToSend:', weiToSend.toFixed())
 
     const opts = {
       from: account,
-      value: weiToSend,
+      value: weiToSend.integerValue(BigNumber.ROUND_CEIL),
       gasPrice: generalStore.gasPrice
     }
     console.log(opts)
 
-    let paramsToExec = [account, weiToSend]
-    const method = methodToExec("buy(bytes)", "crowdsaleBuyTokens", this.getBuyParams, paramsToExec)
+    let methodInterface = ["bytes"];
+    let paramsToExec = [weiToSend, methodInterface]
+    const method = methodToExec(`buy(${methodInterface.join(',')})`, "crowdsaleBuyTokens", this.getBuyParams, paramsToExec)
 
     method.estimateGas(opts)
       .then(estimatedGas => {
@@ -327,17 +300,6 @@ export class Invest extends React.Component {
       .catch(err => toast.showToaster({ type: TOAST.TYPE.ERROR, message: TOAST.MESSAGE.TRANSACTION_FAILED }))
       .then(() => this.setState({ loading: false }))
       .catch((err) => console.log)
-
-    /*initCrowdsaleContract.methods.buy().estimateGas(opts)
-      .then(estimatedGas => {
-        const estimatedGasMax = 4016260
-        opts.gasLimit = !estimatedGas || estimatedGas > estimatedGasMax ? estimatedGasMax : estimatedGas + 100000
-
-        return sendTXToContract(initCrowdsaleContract.methods.buy().send(opts))
-      })
-      .then(() => successfulInvestmentAlert(investStore.tokensToInvest))
-      .catch(err => toast.showToaster({ type: TOAST.TYPE.ERROR, message: TOAST.MESSAGE.TRANSACTION_FAILED }))
-      .then(() => this.setState({ loading: false }))*/
   }
 
   txMinedCallback(txHash, receipt) {
@@ -355,9 +317,8 @@ export class Invest extends React.Component {
     }
   }
 
-  tokensToInvestOnChange = event => {
-    this.setState({ pristineTokenInput: false })
-    this.props.investStore.setProperty('tokensToInvest', event.target.value)
+  updateInvestThrough = (investThrough) => {
+    this.setState({ investThrough })
   }
 
   isValidToken(token) {
@@ -365,10 +326,9 @@ export class Invest extends React.Component {
   }
 
   render () {
-    const { crowdsalePageStore, tokenStore, contractStore, investStore } = this.props
+    const { crowdsalePageStore, tokenStore, contractStore } = this.props
     const { tokenAmountOf } = crowdsalePageStore
     const { crowdsale } = contractStore
-    const { tokensToInvest } = investStore
 
     const { curAddr, pristineTokenInput, investThrough, crowdsaleExecID, web3Available, toNextTick, nextTick } = this.state
     const { days, hours, minutes, seconds } = toNextTick
@@ -380,30 +340,15 @@ export class Invest extends React.Component {
     const tokenName = name ? name.toString() : ''
     const maximumSellableTokens = toBigNumber(crowdsalePageStore.maximumSellableTokens)
     const maxCapBeforeDecimals = toBigNumber(maximumSellableTokens).div(`1e${tokenDecimals}`)
-    //const tokenAddress = getContractStoreProperty('token', 'addr')
 
     //balance
-    const investorBalanceTiers = tokenAmountOf ? (tokenAmountOf / 10 ** tokenDecimals).toString() : '0'
-    const investorBalance = investorBalanceTiers
+    const investorBalance = tokenAmountOf ? toBigNumber(tokenAmountOf).div(`1e${tokenDecimals}`).toFixed() : '0'
 
     //total supply
     const totalSupply = maxCapBeforeDecimals.toFixed()
 
-    let invalidTokenDescription = null
-    if (!pristineTokenInput && !this.isValidToken(tokensToInvest)) {
-      invalidTokenDescription = (
-        <p className="error">
-          Number of tokens to buy should be positive and should not exceed {decimals} decimals.
-        </p>
-      )
-    }
-
     const QRPaymentProcessElement = investThrough === INVESTMENT_OPTIONS.QR ?
       <QRPaymentProcess crowdsaleExecID={crowdsaleExecID} /> :
-      null
-
-    const ContributeButton = investThrough === INVESTMENT_OPTIONS.METAMASK ?
-      <a className="button button_fill" onClick={this.investToTokens}>Contribute</a> :
       null
 
     const rightColumnClasses = classNames('invest-table-cell', 'invest-table-cell_right', {
@@ -466,25 +411,14 @@ export class Invest extends React.Component {
               Your balance in tokens.
             </p>
           </div>
-          <form className="invest-form" onSubmit={this.investToTokens}>
-            <label className="invest-form-label">Choose amount to invest</label>
-            <div className="invest-form-input-container">
-              <input type="text" className="invest-form-input" value={tokensToInvest} onChange={this.tokensToInvestOnChange} placeholder="0"/>
-              <div className="invest-form-label">TOKENS</div>
-              {invalidTokenDescription}
-            </div>
-            <div className="invest-through-container">
-              <select value={investThrough} className="invest-through" onChange={(e) => this.setState({ investThrough: e.target.value })}>
-                <option disabled={!web3Available} value={INVESTMENT_OPTIONS.METAMASK}>Metamask {!web3Available ? ' (not available)' : null}</option>
-                <option value={INVESTMENT_OPTIONS.QR}>QR</option>
-              </select>
-              { ContributeButton }
-            </div>
-            <p className="description">
-              Think twice before contributing to Crowdsales. Tokens will be deposited on a wallet you used to buy tokens.
-            </p>
-          </form>
-          { QRPaymentProcessElement }
+          <Form
+            onSubmit={this.investToTokens}
+            component={InvestForm}
+            investThrough={investThrough}
+            updateInvestThrough={this.updateInvestThrough}
+            web3Available={web3Available}
+          />
+          {QRPaymentProcessElement}
         </div>
       </div>
       <Loader show={this.state.loading}></Loader>

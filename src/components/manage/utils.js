@@ -1,12 +1,15 @@
 import { isObservableArray } from 'mobx'
 import {
-  attachToContract,
-  sendTXToContract
+  getCurrentAccount,
+  sendTXToContract,
+  methodToExec
 } from '../../utils/blockchainHelpers'
 import { contractStore, crowdsaleStore, generalStore, tierStore, tokenStore, web3Store } from '../../stores'
-import { TRUNC_TO_DECIMALS, VALIDATION_TYPES } from '../../utils/constants'
-import { floorToDecimals, toFixed } from '../../utils/utils'
+import { VALIDATION_TYPES } from '../../utils/constants'
+import { toFixed } from '../../utils/utils'
 import { toBigNumber } from '../crowdsale/utils'
+import { generateContext } from '../stepFour/utils'
+import { BigNumber } from 'bignumber.js'
 
 const { VALID } = VALIDATION_TYPES
 
@@ -22,108 +25,101 @@ const formatDate = timestamp => {
   return YYYY + '-' + MM + '-' + DD + 'T' + HH + ':' + II
 }
 
-export const updateTierAttribute = (attribute, value, addresses) => {
+export const updateTierAttribute = (attribute, value, tierIndex) => {
+  let methodInterface
+  let getParams
   const { decimals } = tokenStore
   let methods = {
-    startTime: 'setStartsAt',
-    endTime: 'setEndsAt',
-    supply: 'setMaximumSellableTokens',
-    rate: 'updateRate',
-    whitelist: 'setEarlyParticipantWhitelistMultiple'
+    //startTime: 'setStartsAt', // startTime is not changed from migration to Auth_os
+    endTime: 'updateTierDuration',
+    //supply: 'setMaximumSellableTokens', // supply is not changed from migration to Auth_os
+    //rate: 'updateRate', // rate is not changed from migration to Auth_os
+    whitelist: 'whitelistMultiForTier'
   }
-  let abi
-  let contractAddresses
 
   if (attribute === 'startTime' || attribute === 'endTime' || attribute === 'supply' || attribute === 'whitelist') {
-    abi = contractStore.crowdsale.abi
-    contractAddresses = [addresses.crowdsaleAddress]
+    /*if (attribute === 'startTime') {
+      value = toFixed(parseInt(Date.parse(value) / 1000, 10).toString())
+    } else */
 
-    if (attribute === 'startTime' || attribute === 'endTime') {
-      value = [toFixed(parseInt(Date.parse(value) / 1000, 10).toString())]
-    } else if (attribute === 'supply') {
-      value = [toFixed(parseInt(value, 10) * 10 ** parseInt(tokenStore.decimals, 10)).toString()]
-    } else {
+    if (attribute === 'endTime') {
+      let { startTime, endTime } = tierStore.tiers[tierIndex]
+      console.log(startTime, endTime)
+      const duration = new Date(endTime) - new Date(startTime)
+      const durationBN = (toBigNumber(duration)/1000).toFixed()
+      value = durationBN
+      methodInterface = ["uint256","uint256","bytes"]
+      getParams = updateDurationParams
+    } /*else if (attribute === 'supply') {
+      value = toBigNumber(value).times(`1e${tokenStore.decimals}`).toFixed()
+    } */else if (attribute === 'whitelist')  {
       // whitelist
+      const rate = tierStore.tiers[tierIndex].rate;
+      const rateBN = new BigNumber(rate)
+      const oneTokenInETH = rateBN.pow(-1).toFixed()
+      const oneTokenInWEI = web3Store.web3.utils.toWei(oneTokenInETH, 'ether')
       value = value.reduce((toAdd, whitelist) => {
         toAdd[0].push(whitelist.addr)
-        toAdd[1].push(true)
-        toAdd[2].push(whitelist.min * 10 ** decimals ? toFixed((whitelist.min * 10 ** decimals).toString()) : 0)
-        toAdd[3].push(whitelist.max * 10 ** decimals ? toFixed((whitelist.max * 10 ** decimals).toString()) : 0)
+        toAdd[1].push(toBigNumber(whitelist.min).times(oneTokenInWEI).toFixed())
+        toAdd[2].push(toBigNumber(whitelist.max).times(oneTokenInWEI).toFixed())
+        //toAdd[1].push(whitelist.min * 10 ** decimals ? toFixed((whitelist.min * 10 ** decimals).toString()) : 0)
+        //toAdd[2].push(whitelist.max * 10 ** decimals ? toFixed((whitelist.max * 10 ** decimals).toString()) : 0)
         return toAdd
-      }, [[], [], [], []])
+      }, [[], [], []])
+      methodInterface = ["uint256","address[]","uint256[]","uint256[]","bytes"]
+      getParams = updateWhitelistParams
     }
   }
 
-  if (attribute === 'rate') {
-    abi = contractStore.crowdsale.abi
-    contractAddresses = [addresses.crowdsaleAddress]
+  /*if (attribute === 'rate') {
     const oneTokenInETH = floorToDecimals(TRUNC_TO_DECIMALS.DECIMALS18, 1 / Number(value))
-    value = [web3Store.web3.utils.toWei(oneTokenInETH, 'ether')]
-  }
+    value = web3Store.web3.utils.toWei(oneTokenInETH, 'ether')
+  }*/
 
-  if (!contractAddresses) return Promise.reject('no updatable value')
+  console.log("value:", value)
 
-  if (attribute === 'whitelist') {
-    const totalTiers = tierStore.tiers.length
-    const currentTierIndex = crowdsaleStore.selected.initialTiersValues
-      .findIndex(tier => tier.addresses.crowdsaleAddress === addresses.crowdsaleAddress)
+  console.log("attribute:", attribute)
+  console.log("methods[attribute]:", methods[attribute])
 
-    if (currentTierIndex <= totalTiers - 1) {
-      contractAddresses = crowdsaleStore.selected.initialTiersValues
-        .slice(currentTierIndex)
-        .map(tier => tier.addresses.crowdsaleAddress)
-    }
-  }
+  console.log("tierIndex:", tierIndex)
+  console.log("value:", value)
 
-  return contractAddresses.reduce((promise, contractAddress) => {
-    return promise.then(() => {
-      return attachToContract(abi, contractAddress)
-        .then(contract => {
-          const method = contract.methods[methods[attribute]]
+  const paramsToExec = [ tierIndex, value, methodInterface ] // tierIndex + 1 due to `The index of the tier whose duration will be updated (indexes in the tier list are 1-indexed: 0 is an invalid index)`
 
-          return method(...value).estimateGas()
-            .then(estimatedGas => {
-              return sendTXToContract(method(...value)
-                .send({
-                  gasLimit: estimatedGas,
-                  gasPrice: generalStore.gasPrice
-                })
-              )
-            })
-        })
+  const method = methodToExec(`${methods[attribute]}(${methodInterface.join(',')})`, "crowdsaleConsole", getParams, paramsToExec)
+
+  return getCurrentAccount()
+    .then(account => {
+      const opts = { gasPrice: generalStore.gasPrice, from: account }
+      return method.estimateGas(opts)
+      .then(estimatedGas => {
+        opts.gasLimit = estimatedGas
+        return sendTXToContract(method.send(opts))
+      })
     })
-  }, Promise.resolve())
 }
 
-const extractWhitelistInformation = (isWhitelisted, crowdsaleMethods) => {
-  let whitelistedAccounts = []
-  const whenWhitelistedAddresses = []
+const updateDurationParams = (tierIndex, duration, methodInterface) => {
+  console.log(tierIndex, duration)
+  const { web3 } = web3Store
+  let context = generateContext(0);
+  let encodedParameters = web3.eth.abi.encodeParameters(methodInterface, [tierIndex, duration, context]);
+  return encodedParameters;
+}
 
-  if (isWhitelisted && crowdsaleMethods.whitelistedParticipantsLength) {
-    return crowdsaleMethods.whitelistedParticipantsLength().call()
-      .then(participantsCount => {
-        for (let participantIndex = 0; participantIndex < participantsCount; participantIndex++) {
-          whenWhitelistedAddresses.push(crowdsaleMethods.whitelistedParticipants(participantIndex).call())
-        }
-
-        return Promise.all(whenWhitelistedAddresses)
-      })
-      .then(whitelistedAddresses => {
-        const whenAccountData = whitelistedAddresses
-          .map(address => crowdsaleMethods.earlyParticipantWhitelist(address).call())
-
-        return Promise.all(whenAccountData)
-          .then(accountData => [isWhitelisted, whitelistedAddresses, accountData])
-      })
-  }
-
-  return Promise.resolve([isWhitelisted, whenWhitelistedAddresses, whitelistedAccounts])
+const updateWhitelistParams = (tierIndex, [addr, min, max], methodInterface) => {
+  console.log(tierIndex, addr, min, max, methodInterface)
+  const { web3 } = web3Store
+  let context = generateContext(0);
+  let encodedParameters = web3.eth.abi.encodeParameters(methodInterface, [tierIndex, addr, min, max, context]);
+  return encodedParameters;
 }
 
 const crowdsaleData = (tier, crowdsale, token) => {
   const { web3 } = web3Store
-  let startsAt, endsAt, whitelistAccounts //to do
-  let rate = crowdsale.sale_rate //to do
+  let startsAt = tier.tier_start
+  let endsAt = tier.tier_end
+  let rate = tier.tier_price
   let tokenName = web3.utils.toAscii(token.token_name)
   let tokenSymbol = web3.utils.toAscii(token.token_symbol)
   let decimals = token.token_decimals
@@ -133,7 +129,9 @@ const crowdsaleData = (tier, crowdsale, token) => {
   let isUpdatable = tier.duration_is_modifiable
   let isWhitelisted = tier.whitelist_enabled
   let isFinalized = crowdsale.is_finalized
-  return Promise.resolve([
+  let whitelistAccounts = tier.whitelist
+
+  return Promise.all([
     multisigWallet,
     startsAt,
     endsAt,
@@ -147,24 +145,6 @@ const crowdsaleData = (tier, crowdsale, token) => {
     [tokenName, tokenSymbol, decimals]
   ]);
 }
-
-/*export const getTiers = crowdsaleAddress => {
-  return attachToContract(contractStore.crowdsale.abi, crowdsaleAddress)
-    .then(crowdsaleContract => {
-      const { methods } = crowdsaleContract
-
-      return methods.joinedCrowdsalesLen().call()
-        .then(joinedCrowdsalesLen => {
-          let joinedCrowdsales = []
-
-          for (let joinedTierIndex = 0; joinedTierIndex < joinedCrowdsalesLen; joinedTierIndex++) {
-            joinedCrowdsales.push(methods.joinedCrowdsales(joinedTierIndex).call())
-          }
-
-          return Promise.all(joinedCrowdsales)
-        })
-    })
-}*/
 
 export const processTier = (tier, crowdsale, token, tierNum) => {
   console.log("tier:", tier)
@@ -220,15 +200,15 @@ export const processTier = (tier, crowdsale, token, tierNum) => {
 
       //total supply
       const tokenDecimals = !isNaN(decimals) ? decimals : 0
-      const maxCapBeforeDecimals = parseInt(toFixed(maximumSellableTokens), 10) / 10 ** tokenDecimals
+      const maxCapBeforeDecimals = toBigNumber(maximumSellableTokens).div(`1e${tokenDecimals}`)
 
-      newTier.supply = maxCapBeforeDecimals ? maxCapBeforeDecimals.toString() : 0
+      newTier.supply = maxCapBeforeDecimals ? maxCapBeforeDecimals.toFixed() : 0
 
-      return Promise.all([whitelistAccounts, rate])
+      return Promise.all([whitelistAccounts, rate, tokenDecimals])
     })
-    .then(([whitelistAccounts, rate]) => {
-      const { decimals } = tokenStore
-      const tokenDecimals = !isNaN(decimals) ? decimals : 0
+    .then(([whitelistAccounts, rate, tokenDecimals]) => {
+      //const { decimals } = tokenStore
+      //const tokenDecimals = !isNaN(decimals) ? decimals : 0
 
       //price
       newTier.rate = toBigNumber(web3.utils.fromWei(toBigNumber(rate).toFixed(), 'ether'))
@@ -248,12 +228,14 @@ export const processTier = (tier, crowdsale, token, tierNum) => {
 
       const whitelist = newTier.whitelist.slice()
 
-      whitelistAccounts.forEach(({ addr, min, max }) => {
-        min = parseInt(toFixed(min), 10) / 10 ** tokenDecimals
-        max = parseInt(toFixed(max), 10) / 10 ** tokenDecimals
+      if (whitelistAccounts) {
+        whitelistAccounts.forEach(({ addr, min, max }) => {
+          min = parseInt(toFixed(min), 10) * newTier.rate / 10 ** tokenDecimals
+          max = parseInt(toFixed(max), 10) * newTier.rate / 10 ** tokenDecimals
 
-        whitelist.push({ addr, min, max, stored: true })
-      })
+          whitelist.push({ addr, min, max, stored: true })
+        })
+      }
 
       tierStore.setTierProperty(whitelist, 'whitelist', tierNum)
       tierStore.sortWhitelist(tierNum)
@@ -277,18 +259,17 @@ export function getFieldsToUpdate(updatableTiers, tiers) {
   const toUpdate = updatableTiers
     .reduce((toUpdate, tier, index) => {
       keys.forEach(key => {
-        const { addresses } = tier
         let newValue = tiers[tier.index][key]
 
         if (isObservableArray(newValue)) {
           newValue = newValue.filter(item => !item.stored)
 
           if (newValue.length) {
-            toUpdate.push({ key, newValue, addresses })
+            toUpdate.push({ key, newValue, tier: index })
           }
 
         } else if (newValue !== tier[key]) {
-          toUpdate.push({ key, newValue, addresses, tier: index })
+          toUpdate.push({ key, newValue, tier: index })
         }
       })
       return toUpdate

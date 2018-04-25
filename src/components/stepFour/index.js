@@ -21,7 +21,7 @@ import {
 import { toast } from '../../utils/utils'
 import { StepNavigation } from '../Common/StepNavigation'
 import { DisplayField } from '../Common/DisplayField'
-import { DisplayTextArea } from '../Common/DisplayTextArea'
+//import { DisplayTextArea } from '../Common/DisplayTextArea'
 import { TxProgressStatus } from '../Common/TxProgressStatus'
 import { ModalContainer } from '../Common/ModalContainer'
 import { copy } from '../../utils/copy'
@@ -80,7 +80,6 @@ export class stepFour extends React.Component {
 
   deployCrowdsale = () => {
     const { deploymentStore } = this.props
-    const { web3 } = this.context
     const firstRun = deploymentStore.deploymentStep === null
 
     this.resumeContractDeployment()
@@ -157,8 +156,6 @@ export class stepFour extends React.Component {
 
     switch (parent) {
       case 'crowdsale':
-      case 'pricingStrategy':
-      case 'finalizeAgent':
         return handlerForFile(content, this.props.contractStore[parent])
       case 'tierStore':
         index = 'walletAddress' === content.field ? 0 : index
@@ -177,33 +174,25 @@ export class stepFour extends React.Component {
   downloadCrowdsaleInfo = () => {
     const zip = new JSZip()
     const { files } = FILE_CONTENTS
-    const [NULL_FINALIZE_AGENT, FINALIZE_AGENT] = ['nullFinalizeAgent', 'finalizeAgent']
-    const tiersCount = isObservableArray(this.props.tierStore.tiers) ? this.props.tierStore.tiers.length : 1
-    const contractsKeys = tiersCount === 1 ? files.order.filter(c => c !== NULL_FINALIZE_AGENT) : files.order;
+    //const tiersCount = isObservableArray(this.props.tierStore.tiers) ? this.props.tierStore.tiers.length : 1
+    const contractsKeys = files.order;
     const orderNumber = order => order.toString().padStart(3, '0');
     let prefix = 1
 
     contractsKeys.forEach(key => {
       if (this.props.contractStore.hasOwnProperty(key)) {
-        const { txt, sol, name } = files[key]
+        console.log(files[key])
+        console.log(this.props.contractStore[key])
+        const { txt, name } = files[key]
         const { abiConstructor } = this.props.contractStore[key]
         let tiersCountPerContract = isObservableArray(abiConstructor) ? abiConstructor.length : 1
 
-        if (tiersCount > 1 && [NULL_FINALIZE_AGENT, FINALIZE_AGENT].includes(key)) {
-          tiersCountPerContract = NULL_FINALIZE_AGENT === key ? tiersCount - 1 : 1
-        }
-
         for (let tier = 0; tier < tiersCountPerContract; tier++) {
           const suffix = tiersCountPerContract > 1 ? `_${tier + 1}` : ''
-          const solFilename = `${orderNumber(prefix++)}_${name}${suffix}`
           const txtFilename = `${orderNumber(prefix++)}_${name}${suffix}`
-          const tierNumber = FINALIZE_AGENT === key ? tiersCount - 1 : tier
+          const tierNumber = tier
           const commonHeader = FILE_CONTENTS.common.map(content => this.handleContentByParent(content, tierNumber))
 
-          zip.file(
-            `${solFilename}.sol`,
-            this.handleContentByParent(sol)
-          )
           zip.file(
             `${txtFilename}.txt`,
             commonHeader.concat(txt.map(content => this.handleContentByParent(content, tierNumber))).join('\n\n')
@@ -214,9 +203,7 @@ export class stepFour extends React.Component {
 
     zip.generateAsync({ type: DOWNLOAD_TYPE.blob })
       .then(content => {
-        const tokenAddr = this.props.contractStore ? this.props.contractStore.token.addr : '';
-
-        getDownloadName(tokenAddr)
+        getDownloadName()
           .then(downloadName => download({ zip: content, filename: downloadName }))
       })
   }
@@ -228,17 +215,17 @@ export class stepFour extends React.Component {
 
   goToCrowdsalePage = () => {
     const { contractStore } = this.props
-    const isValidContract = contractStore.crowdsale.addr
+    const isValidContract = contractStore.crowdsale.execID
 
     if (!isValidContract) {
       return noContractDataAlert()
     }
 
     const crowdsalePage = '/crowdsale'
-    const url = `${crowdsalePage}?exec-id=${contractStore.crowdsale.addr}&networkID=${contractStore.crowdsale.networkID}`
+    const url = `${crowdsalePage}?exec-id=${contractStore.crowdsale.execID}&networkID=${contractStore.crowdsale.networkID}`
 
     if (!this.state.contractDownloaded) {
-      //this.downloadCrowdsaleInfo()
+      this.downloadCrowdsaleInfo()
       this.contractDownloadSuccess()
     }
 
@@ -274,7 +261,7 @@ export class stepFour extends React.Component {
   }
 
   render() {
-    const { tierStore, contractStore, tokenStore, deploymentStore } = this.props
+    const { tierStore, tokenStore, deploymentStore } = this.props
     const crowdsaleSetups = tierStore.tiers.map((tier, index) => {
       return (
         <div key={index.toString()}>
@@ -326,7 +313,7 @@ export class stepFour extends React.Component {
         </div>
       )
     })
-    const ABIEncodedOutputsCrowdsale = tierStore.tiers.map((tier, index) => {
+    /*const ABIEncodedOutputsCrowdsale = tierStore.tiers.map((tier, index) => {
       return (
         <DisplayTextArea
           key={index.toString()}
@@ -335,27 +322,7 @@ export class stepFour extends React.Component {
           description="Encoded ABI"
         />
       )
-    })
-    const ABIEncodedOutputsPricingStrategy = tierStore.tiers.map((tier, index) => {
-      return (
-        <DisplayTextArea
-          key={index.toString()}
-          label={'Constructor Arguments for ' + (tier.tier ? tier.tier : '') + ' Pricing Strategy Contract (ABI-encoded and appended to the ByteCode above)'}
-          value={contractStore ? contractStore.pricingStrategy ? contractStore.pricingStrategy.abiConstructor ? contractStore.pricingStrategy.abiConstructor[index] : '' : '' : ''}
-          description="Constructor arguments for pricing strategy contract"
-        />
-      )
-    })
-    const ABIEncodedOutputsFinalizeAgent = tierStore.tiers.map((tier, index) => {
-      return (
-        <DisplayTextArea
-          key={index.toString()}
-          label={'Constructor Arguments for ' + (tier.tier ? tier.tier : '') + ' Finalize Agent Contract (ABI-encoded and appended to the ByteCode above)'}
-          value={contractStore ? contractStore.finalizeAgent ? contractStore.finalizeAgent.abiConstructor ? contractStore.finalizeAgent.abiConstructor[index] : '' : '' : ''}
-          description="Constructor arguments for finalize agent contract"
-        />
-      )
-    })
+    })*/
     const globalLimitsBlock = (
       <div>
         <div className="publish-title-container">
@@ -371,7 +338,7 @@ export class stepFour extends React.Component {
         </div>
       </div>
     )
-    const tokenBlock = (
+    /*const tokenBlock = (
       <div>
         <DisplayTextArea
           label={'Token Contract Source Code'}
@@ -389,35 +356,7 @@ export class stepFour extends React.Component {
           description="Token Constructor Arguments"
         />
       </div>
-    )
-    const pricingStrategyBlock = (
-      <div>
-        <DisplayTextArea
-          label={'Pricing Strategy Contract Source Code'}
-          value={contractStore ? contractStore.pricingStrategy ? contractStore.pricingStrategy.src : '' : ''}
-          description="Pricing Strategy Contract Source Code"
-        />
-        <DisplayTextArea
-          label={'Pricing Strategy Contract ABI'}
-          value={contractStore ? contractStore.pricingStrategy ? JSON.stringify(contractStore.pricingStrategy.abi) : '' : ''}
-          description="Pricing Strategy Contract ABI"
-        />
-      </div>
-    )
-    const finalizeAgentBlock = (
-      <div>
-        <DisplayTextArea
-          label={'Finalize Agent Contract Source Code'}
-          value={contractStore ? contractStore.finalizeAgent ? contractStore.finalizeAgent.src : '' : ''}
-          description="Finalize Agent Contract Source Code"
-        />
-        <DisplayTextArea
-          label={'Finalize Agent Contract ABI'}
-          value={contractStore ? contractStore.finalizeAgent ? JSON.stringify(contractStore.finalizeAgent.abi) : '' : ''}
-          description="Finalize Agent Contract ABI"
-        />
-      </div>
-    )
+    )*/
 
     const modalContent = deploymentStore.invalidAccount ? (
       <div>
@@ -441,7 +380,7 @@ export class stepFour extends React.Component {
             <div className="step-icons step-icons_publish"/>
             <p className="title">Publish</p>
             <p className="description">
-              On this step we provide you artifacts about your token and crowdsale contracts. They are useful to verify contracts source code on <a href="https://etherscan.io/verifyContract">Etherscan</a>
+              On this step we provide you artifacts about your token and crowdsale contracts.
             </p>
           </div>
           <div className="hidden">
@@ -480,7 +419,7 @@ export class stepFour extends React.Component {
               </div>
             </div>
             {crowdsaleSetups}
-            <div className="publish-title-container">
+            {/*<div className="publish-title-container">
               <p className="publish-title" data-step={2 + tierStore.tiers.length + 1}>Crowdsale Setup</p>
             </div>
             <div className="hidden">
@@ -502,16 +441,12 @@ export class stepFour extends React.Component {
                 value={true.toString()}
                 description="Optimization in compiling"
               />
-            </div>
+            </div>*/}
             {tierStore.tiers[0].whitelistEnabled !== "yes"
               ? globalLimitsBlock
               : null
             }
-            {tokenBlock}
-            {pricingStrategyBlock}
-            {ABIEncodedOutputsPricingStrategy}
-            {finalizeAgentBlock}
-            {ABIEncodedOutputsFinalizeAgent}
+            {/*{tokenBlock}
             <DisplayTextArea
               label={"Crowdsale Contract Source Code"}
               value={contractStore ? contractStore.crowdsale ? contractStore.crowdsale.src : "" : ""}
@@ -522,7 +457,7 @@ export class stepFour extends React.Component {
               value={contractStore ? contractStore.crowdsale ? JSON.stringify(contractStore.crowdsale.abi) : "" : ""}
               description="Crowdsale Contract ABI"
             />
-            {ABIEncodedOutputsCrowdsale}
+            {ABIEncodedOutputsCrowdsale}*/}
           </div>
         </div>
         <div className="button-container">
