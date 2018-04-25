@@ -8,7 +8,8 @@ import { NAVIGATION_STEPS, CHAINS } from '../../utils/constants'
 import { inject, observer } from "mobx-react";
 import { Loader } from '../Common/Loader'
 import { noGasPriceAvailable, warningOnMainnetAlert } from '../../utils/alerts'
-import { StepThreeForm } from './StepThreeForm'
+import { getStep3Component } from './utils'
+import { isLessOrEqualThan } from '../../utils/validations'
 
 const { CROWDSALE_SETUP } = NAVIGATION_STEPS;
 
@@ -20,7 +21,8 @@ const { CROWDSALE_SETUP } = NAVIGATION_STEPS;
   "gasPriceStore",
   "reservedTokenStore",
   "deploymentStore",
-  "tokenStore"
+  "tokenStore",
+  "crowdsaleStore"
 )
 @observer
 export class stepThree extends React.Component {
@@ -85,7 +87,8 @@ export class stepThree extends React.Component {
   }
 
   render () {
-    const { generalStore, tierStore, gasPriceStore, tokenStore, web3Store } = this.props
+    const { generalStore, tierStore, gasPriceStore, tokenStore, web3Store, crowdsaleStore } = this.props
+    let stepThreeComponent = getStep3Component(crowdsaleStore.strategy)
 
     return (
       <section className="steps steps_crowdsale-contract" ref="three">
@@ -100,12 +103,23 @@ export class stepThree extends React.Component {
             whitelistEnabled: "no",
             tiers: this.initialTiers
           }}
-          component={StepThreeForm}
+          component={stepThreeComponent}
           addCrowdsale={tierStore.addCrowdsale}
           gasPricesInGwei={gasPriceStore.gasPricesInGwei}
           decimals={tokenStore.decimals}
           tierStore={tierStore}
           generalStore={generalStore}
+          validate={(values) => {
+            const errors = {}
+            const maxSupply = tierStore.maxSupply
+            const minCap = maxSupply !== 0
+              ? isLessOrEqualThan('Should be less or equal than the supply of some tier')(maxSupply)(values.minCap)
+              : undefined
+
+            if (minCap) errors.minCap = minCap
+
+            return errors
+          }}
         />
         <Loader show={this.state.loading}/>
       </section>

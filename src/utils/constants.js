@@ -1,3 +1,8 @@
+export const CROWDSALE_STRATEGIES = {
+  MINTED_CAPPED_CROWDSALE: "white-list-with-cap",
+  DUTCH_AUCTION: "dutch-auction"
+}
+
 export const VALIDATION_TYPES = {
   VALID: "VALIDATED",
   EMPTY: 'EMPTY',
@@ -123,6 +128,7 @@ export const VALIDATION_MESSAGES = {
   DATE_IS_SAME_OR_LATER: 'Should be same or later than specified time',
   DATE_IS_LATER: 'Should be later than specified time',
   DATE_IS_SAME_OR_PREVIOUS: 'Should be same or previous than specified time',
+  PATTERN: 'Should match the specified pattern',
 }
 
 //descriptions of input fields
@@ -131,17 +137,24 @@ export const DESCRIPTION = {
   CROWDSALE_SETUP_NAME: `Name of a tier, e.g. PrePreCrowdsale, PreCrowdsale, Crowdsale with bonus A, Crowdsale with bonus B, etc. We simplified that and will increment a number after each tier.`,
   ALLOW_MODIFYING: `Pandora box feature. If it's enabled, a creator of the crowdsale can modify Start time, End time, Rate, Limit after publishing.`,
   START_TIME: `Date and time when the tier starts. Can't be in the past from the current moment.`,
+  START_TIME_DUTCH_AUCTION: `Date and time when the crowdsale starts. Can't be in the past from the current moment.`,
   END_TIME: `Date and time when the tier ends. Can be only in the future.`,
+  END_TIME_DUTCH_AUCTION: `Date and time when the crowdsale ends. Can be only in the future.`,
   RATE: `Exchange rate Ethereum to Tokens. If it's 100, then for 1 Ether you can buy 100 tokens`,
-  SUPPLY: `How many tokens will be sold on this tier. Cap of crowdsale equals to sum of supply of all tiers`
+  SUPPLY: `How many tokens will be sold on this tier. Cap of crowdsale equals to sum of supply of all tiers`,
+  SUPPLY_DUTCH_AUCTION: `How many tokens will be sold on crowdsale`,
+  TOKEN_SUPPLY: `The total supply of the token`
 }
 
 export const TEXT_FIELDS = {
   NAME: 'Name',
   TICKER: 'Ticker',
   SUPPLY: 'Supply',
+  TOKEN_SUPPLY: 'Supply',
   DECIMALS: 'Decimals',
   RATE: 'Rate',
+  MIN_RATE: 'Min Rate',
+  MAX_RATE: 'Max Rate',
   WALLET_ADDRESS: 'Wallet Address',
   START_TIME: 'Start Time',
   END_TIME: 'End Time',
@@ -155,7 +168,8 @@ export const TEXT_FIELDS = {
   MAX_CAP: 'Max cap',
   ALLOWMODIFYING: 'Allow modifying',
   ENABLE_WHITELISTING: 'Enable whitelisting',
-  GAS_PRICE: 'Gas Price'
+  GAS_PRICE: 'Gas Price',
+  STRATEGY: 'Crowdsale Type'
 }
 
 export const intitialStepTwoValidations = {

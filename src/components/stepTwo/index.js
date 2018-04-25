@@ -6,13 +6,12 @@ import { clearingReservedTokens } from '../../utils/alerts'
 import { NAVIGATION_STEPS, VALIDATION_TYPES } from '../../utils/constants'
 import { inject, observer } from 'mobx-react'
 import { Form } from 'react-final-form'
-import { validators } from '../../utils/validations'
 import { StepTwoForm } from './StepTwoForm'
 
 const { TOKEN_SETUP } = NAVIGATION_STEPS
 const { VALID, INVALID } = VALIDATION_TYPES
 
-@inject('tokenStore', 'web3Store', 'reservedTokenStore')
+@inject('tokenStore', 'crowdsaleStore', 'web3Store', 'reservedTokenStore')
 @observer
 export class stepTwo extends Component {
   constructor (props) {
@@ -48,11 +47,13 @@ export class stepTwo extends Component {
     this.props.reservedTokenStore.addToken(newToken)
   }
 
-  updateTokenStore = (property, value) => {
-    const validity = validators(property, value) ? VALID : INVALID
+  updateTokenStore = ({ values, errors }) => {
+    const { tokenStore } = this.props
 
-    this.props.tokenStore.setProperty(property, value)
-    this.props.tokenStore.updateValidity(property, validity)
+    Object.keys(values).forEach((key) => {
+      tokenStore.setProperty(key, values[key])
+      tokenStore.updateValidity(key, errors[key] !== undefined ? INVALID : VALID)
+    })
   }
 
   onSubmit = () => {
@@ -72,7 +73,7 @@ export class stepTwo extends Component {
             <div className="step-icons step-icons_token-setup"/>
             <p className="title">Token setup</p>
             <p className="description">
-              Configure properties of your token. Created token contract will be ERC-20 compatible.
+              Configure properties of your token. Created token will be ERC-20 compatible.
             </p>
           </div>
           <Form
@@ -87,6 +88,7 @@ export class stepTwo extends Component {
             removeReservedToken={this.removeReservedToken}
             clearAll={this.clearReservedTokens}
             id="tokenData"
+            crowdsaleStore={this.props.crowdsaleStore}
           />
         </div>
       </section>

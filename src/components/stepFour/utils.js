@@ -2,17 +2,17 @@ import {
   calculateGasLimit,
   getNetWorkNameById,
   getNetworkVersion,
-  getRegistryAddress,
   sendTXToContract,
   methodToExec,
   methodToInitAppInstance
 } from '../../utils/blockchainHelpers'
 //import { noContractAlert } from '../../utils/alerts'
 import { countDecimalPlaces, toFixed } from '../../utils/utils'
-import { DOWNLOAD_NAME } from '../../utils/constants'
+import { DOWNLOAD_NAME, CROWDSALE_STRATEGIES } from '../../utils/constants'
 import { isObservableArray } from 'mobx'
 import {
   contractStore,
+  crowdsaleStore,
   deploymentStore,
   generalStore,
   reservedTokenStore,
@@ -25,15 +25,29 @@ import { BigNumber } from 'bignumber.js'
 import { toBigNumber } from '../crowdsale/utils'
 
 export const buildDeploymentSteps = (web3) => {
-  const stepFnCorrelation = {
-    crowdsaleCreate: deployCrowdsale,
-    token: initializeToken,
-    //registerCrowdsaleAddress: registerCrowdsaleAddress,
-    setReservedTokens: setReservedTokensListMultiple,
-    updateGlobalMinContribution: updateGlobalMinContribution,
-    createCrowdsaleTiers: createCrowdsaleTiers,
-    whitelist: addWhitelist,
-    crowdsaleInit: initializeCrowdsale,
+  let stepFnCorrelation
+  switch (crowdsaleStore.strategy) {
+    case CROWDSALE_STRATEGIES.MINTED_CAPPED_CROWDSALE:
+      stepFnCorrelation = {
+        crowdsaleCreate: deployCrowdsale,
+        token: initializeToken,
+        setReservedTokens: setReservedTokensListMultiple,
+        updateGlobalMinContribution: updateGlobalMinContribution,
+        createCrowdsaleTiers: createCrowdsaleTiers,
+        whitelist: addWhitelist,
+        crowdsaleInit: initializeCrowdsale,
+      }
+      break;
+    case CROWDSALE_STRATEGIES.DUTCH_AUCTION:
+      stepFnCorrelation = {
+        crowdsaleCreate: deployDutchAuctionCrowdsale,
+        token: initializeToken,
+        crowdsaleInit: initializeCrowdsale,
+      }
+      break;
+    default:
+      stepFnCorrelation = {}
+      break;
   }
 
   let list = []
@@ -120,7 +134,8 @@ export const deployCrowdsale = () => {
               methodInterfaceStr,
               target,
               getCrowdSaleParams,
-              params
+              params,
+              process.env['REACT_APP_MINTED_CAPPED_CROWDSALE_APP_NAME']
             )
             /*let method = methodToInit(
               methodInterfaceStr,
@@ -134,6 +149,133 @@ export const deployCrowdsale = () => {
               getCrowdSaleParams,
               params
             )*/
+
+            const opts = { gasPrice: generalStore.gasPrice, from: account }
+            console.log("opts:", opts)
+
+            return method.estimateGas(opts)
+              .then(estimatedGas => {
+                opts.gasLimit = calculateGasLimit(estimatedGas)
+                return sendTXToContract(method.send(opts))
+                  .then((receipt) => {
+                    console.log("receipt:", receipt)
+                    let logs = receipt.logs;
+                    let events = receipt.events;
+                    if (events) {
+                      console.log("events:", events)
+                      if (events.ApplicationFinalization) {
+                        getExecutionIDFromEvent(events, "ApplicationFinalization");
+                      } else if (events.AppInstanceCreated) {
+                        getExecutionIDFromEvent(events, "AppInstanceCreated");
+                      }
+                    } else if (logs) {
+                      console.log("logs:")
+                      console.log(logs)
+
+                      let lastLog = logs.reduce(function(log, current) {
+                        console.log(log)
+                        console.log(current.topics)
+                        console.log(current.logIndex)
+                        if (!log) {
+                          return log = current;
+                        }
+                        if (current.logIndex > log.logIndex) {
+                          log = current;
+                        }
+                        return log
+                      }, 0)
+                      if (lastLog) {
+                        if (lastLog.topics) {
+                          if (lastLog.topics.length > 1) {
+                            let execID = lastLog.topics[2]
+                            console.log("exec_id", execID)
+                            contractStore.setContractProperty('crowdsale', 'execID', execID)
+                          }
+                        }
+                      }
+                    }
+                  })
+                  .then(() => deploymentStore.setAsSuccessful('crowdsaleCreate'))
+              })
+          })
+      })
+    }
+  ]
+}
+
+const getDutchAuctionCrowdSaleParams = (account, methodInterface) => {
+  const { web3 } = web3Store
+  const { walletAddress, supply, startTime, endTime, minRate, maxRate } = tierStore.tiers[0]
+
+  BigNumber.config({ DECIMAL_PLACES: 18 })
+  console.log(tierStore.tiers[0])
+
+  //Dutch Auction crowdsale minOneTokenInWEI
+  const minRateBN = new BigNumber(minRate)
+  const minOneTokenInETH = minRateBN.pow(-1).toFixed()
+  const minOneTokenInWEI = web3.utils.toWei(minOneTokenInETH, 'ether')
+
+  //Dutch Auction crowdsale maxOneTokenInWEI
+  const maxRateBN = new BigNumber(maxRate)
+  const maxOneTokenInETH = maxRateBN.pow(-1).toFixed()
+  const maxOneTokenInWEI = web3.utils.toWei(maxOneTokenInETH, 'ether')
+
+  //Dutch Auction crowdsale duration
+  const formatDate = date => toFixed(parseInt(Date.parse(date) / 1000, 10).toString())
+  const duration = formatDate(endTime) - formatDate(startTime)
+  const durationBN = toBigNumber(duration).toFixed()
+
+  //token supply
+  const tokenSupplyBN = toBigNumber(tokenStore.supply).times(`1e${tokenStore.decimals}`).toFixed()
+
+  //Dutch Auction crowdsale supply
+  const crowdsaleSupplyBN = toBigNumber(supply).times(`1e${tokenStore.decimals}`).toFixed()
+
+  let paramsCrowdsale = [
+    walletAddress,
+    tokenSupplyBN,
+    crowdsaleSupplyBN,
+    maxOneTokenInWEI,
+    minOneTokenInWEI,
+    durationBN,
+    formatDate(startTime),
+    account
+  ]
+
+  console.log("paramsCrowdsale:", paramsCrowdsale)
+
+  let encodedParameters = web3.eth.abi.encodeParameters(methodInterface, paramsCrowdsale);
+  return encodedParameters;
+}
+
+export const deployDutchAuctionCrowdsale = () => {
+  console.log("###deploy Dutch Auction crowdsale###")
+  const { web3 } = web3Store
+  return [
+    () => {
+      return getNetworkVersion()
+      .then((networkID) => {
+        contractStore.setContractProperty('crowdsale', 'networkID', networkID)
+
+        return web3.eth.getAccounts()
+          .then((accounts) => accounts[0])
+          .then((account) => {
+            contractStore.setContractProperty('crowdsale', 'account', account)
+
+            const methodInterface = ["address","uint256","uint256","uint256","uint256","uint256","uint256","address"]
+
+            let params = [ account, methodInterface ];
+
+            const methodInterfaceStr = `init(${methodInterface.join(',')})`
+            const target = "initCrowdsale"
+
+            let method = methodToInitAppInstance(
+              methodInterfaceStr,
+              target,
+              getDutchAuctionCrowdSaleParams,
+              params,
+              process.env['REACT_APP_DUTCH_CROWDSALE_APP_NAME']
+            )
 
             const opts = { gasPrice: generalStore.gasPrice, from: account }
             console.log("opts:", opts)
@@ -367,38 +509,6 @@ export const initializeCrowdsale = () => {
               .then(() => deploymentStore.setAsSuccessful('crowdsaleInit'))
           })
       })
-    }
-  ]
-}
-
-function registerCrowdsaleAddress () {
-  return [
-    () => {
-      const { web3 } = web3Store
-      const toJS = x => JSON.parse(JSON.stringify(x))
-
-      const registryAbi = contractStore.registry.abi
-      const crowdsaleAddress = contractStore.crowdsale.execID
-
-      const whenRegistryAddress = getRegistryAddress()
-
-      const whenAccount = web3.eth.getAccounts()
-        .then((accounts) => accounts[0])
-
-      return Promise.all([whenRegistryAddress, whenAccount])
-        .then(([registryAddress, account]) => {
-          const registry = new web3.eth.Contract(toJS(registryAbi), registryAddress)
-
-          const opts = { gasPrice: generalStore.gasPrice, from: account }
-          const method = registry.methods.add(crowdsaleAddress)
-
-          return method.estimateGas(opts)
-            .then(estimatedGas => {
-              opts.gasLimit = calculateGasLimit(estimatedGas)
-              return sendTXToContract(method.send(opts))
-            })
-        })
-        .then(() => deploymentStore.setAsSuccessful('registerCrowdsaleAddress'))
     }
   ]
 }

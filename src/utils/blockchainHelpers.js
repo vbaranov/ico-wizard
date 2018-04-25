@@ -1,7 +1,6 @@
 import { incorrectNetworkAlert, noMetaMaskAlert, invalidNetworkIDAlert, noContractAlert } from './alerts'
-import { CHAINS, MAX_GAS_PRICE } from './constants'
+import { CHAINS, MAX_GAS_PRICE, CROWDSALE_STRATEGIES } from './constants'
 import { crowdsaleStore, generalStore, web3Store, contractStore } from '../stores'
-import { fetchFile } from './utils'
 import { toJS } from 'mobx'
 
 const DEPLOY_CONTRACT = 1
@@ -256,7 +255,7 @@ export function attachToContract (abi, addr) {
     })
 }
 
-export function loadRegistryAddresses () {
+function getApplicationsInstances () {
   const { web3 } = web3Store
   const whenScriptExecContract = attachToSpecificCrowdsaleContract("scriptExec")
   const whenAccount = web3.eth.getAccounts()
@@ -264,6 +263,7 @@ export function loadRegistryAddresses () {
 
   return Promise.all([whenScriptExecContract, whenAccount])
     .then(([scriptExecContract, account]) => {
+      console.log("account:", account)
       console.log("scriptExecContract:", scriptExecContract)
       let promises = [];
       const crowdsales = []
@@ -272,10 +272,16 @@ export function loadRegistryAddresses () {
         let promise = new Promise((resolve, reject) => {
           scriptExecContract.methods.deployer_instances(account, i).call()
           .then((deployer_instance) => {
-            console.log("deployer_instance:", deployer_instance)
+            //console.log("deployer_instance:", deployer_instance)
             let appName = web3.utils.toAscii(deployer_instance.app_name)
-            if (appName.toString().toLowerCase().includes(process.env[`REACT_APP_CROWDSALE_APP_NAME`].toString().toLowerCase())) {
-              crowdsales.push(deployer_instance.exec_id)
+            let appNameLowerCase = appName.toLowerCase()
+            if (
+              appNameLowerCase.includes(process.env[`REACT_APP_MINTED_CAPPED_CROWDSALE_APP_NAME`].toLowerCase())
+              || appNameLowerCase.includes(process.env[`REACT_APP_DUTCH_CROWDSALE_APP_NAME`].toLowerCase())) {
+              crowdsales.push({
+                appName: appName,
+                execID: deployer_instance.exec_id
+              })
             }
             resolve();
           })
@@ -288,16 +294,39 @@ export function loadRegistryAddresses () {
       return Promise.all(promises)
         .then(() => {
           return Promise.all(crowdsales)
-          return scriptExecContract.methods.deployer_instances(account, 0).call()
-            .then((deployer_instance) => {
-              console.log("deployer_instance:", deployer_instance)
-              const crowdsales = []
-              crowdsales.push(deployer_instance.exec_id)
-              return Promise.all(crowdsales)
-            })
         })
     })
+    .catch((err) => {
+      console.log(err)
+      return []
+    })
+}
+
+
+export function getCrowdsaleStrategy (execID) {
+  return getApplicationsInstances()
     .then(crowdsales => {
+      let appName = "";
+      crowdsales.some((item) => {
+        if (item.execID == execID) {
+          appName = item.appName
+          return
+        }
+      })
+
+      let appNameLowerCase = appName.toLowerCase();
+      if (appNameLowerCase.includes(process.env[`REACT_APP_MINTED_CAPPED_CROWDSALE_APP_NAME`].toLowerCase())) {
+        return CROWDSALE_STRATEGIES.MINTED_CAPPED_CROWDSALE
+      } else if (appNameLowerCase.includes(process.env[`REACT_APP_DUTCH_CROWDSALE_APP_NAME`].toLowerCase())) {
+        return CROWDSALE_STRATEGIES.DUTCH_AUCTION
+      }
+    })
+}
+
+export function loadRegistryAddresses () {
+  return getApplicationsInstances()
+    .then(crowdsales => {
+      console.log(crowdsales)
       crowdsaleStore.setCrowdsales(crowdsales)
     })
 }
@@ -320,23 +349,27 @@ export let getCurrentAccount = () => {
 export let attachToSpecificCrowdsaleContract = (contractName) => {
   return new Promise((resolve, reject) => {
     console.log(contractStore)
+    console.log(`contractName:${contractName},`)
     console.log(toJS(contractStore[contractName]))
 
     let contractObj = toJS(contractStore[contractName])
     console.log(contractObj)
-    //console.log(contractObj.abi)
-    //console.log(contractObj.addr)
+
+    if (!contractObj) {
+      noContractAlert()
+      reject('no contract')
+    }
 
     attachToContract(contractObj.abi, contractObj.addr)
-      .then(initCrowdsaleContract => {
+      .then(contractInstance => {
         console.log(`attach to ${contractName} contract`)
 
-        if (!initCrowdsaleContract) {
+        if (!contractInstance) {
           noContractAlert()
           reject('no contract')
         }
 
-        resolve(initCrowdsaleContract);
+        resolve(contractInstance);
       })
   });
 }
@@ -376,7 +409,7 @@ export let methodToExec = (methodName, targetName, getEncodedParams, params) => 
   return method;
 }
 
-export let methodToInitAppInstance = (methodName, targetName, getEncodedParams, params) => {
+export let methodToInitAppInstance = (methodName, targetName, getEncodedParams, params, appName) => {
   const { web3 } = web3Store
   const methodParams = getEncodedParams(...params)
   console.log("methodParams:", methodParams)
@@ -399,7 +432,7 @@ export let methodToInitAppInstance = (methodName, targetName, getEncodedParams, 
 
   const isPayable = true;
 
-  let appNameBytes = web3.utils.fromAscii(process.env['REACT_APP_CROWDSALE_APP_NAME'])
+  let appNameBytes = web3.utils.fromAscii(appName)
   let encodedAppName = web3.eth.abi.encodeParameter("bytes32", appNameBytes);
 
   let paramsToInitAppInstance = [
