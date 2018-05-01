@@ -3,7 +3,7 @@ import { CrowdsaleStartTime } from './../Common/CrowdsaleStartTime'
 import { CrowdsaleEndTime } from './../Common/CrowdsaleEndTime'
 import { CrowdsaleRate } from './../Common/CrowdsaleRate'
 import { CrowdsaleSupply } from './../Common/CrowdsaleSupply'
-import { TEXT_FIELDS, DESCRIPTION } from '../../utils/constants'
+import { TEXT_FIELDS, DESCRIPTION, CROWDSALE_STRATEGIES_DISPLAYNAMES } from '../../utils/constants'
 import { InputField } from '../Common/InputField'
 import { isDateLaterThan } from '../../utils/validations'
 import { WhitelistInputBlock } from '../Common/WhitelistInputBlock'
@@ -30,8 +30,10 @@ export const ManageDutchAuctionBlock = ({
   <div>
     {fields.map((name, index) => {
       const currentTier = fields.value[index]
-      const { walletAddress, updatable } = currentTier
+      let { walletAddress, updatable } = currentTier
       const { startTime: initialStartTime, endTime: initialEndTime } = fields.initial[index]
+
+      updatable = crowdsaleStore.isDutchAuction ? true : updatable
 
       const tierHasStarted = !isDateLaterThan()(dateToTimestamp(initialStartTime))(Date.now())
       const tierHasEnded = !isDateLaterThan()(dateToTimestamp(initialEndTime))(Date.now())
@@ -45,7 +47,7 @@ export const ManageDutchAuctionBlock = ({
 
             <div className={classNames('hidden', { 'divisor': isWhitelistEnabled })}>
               <div className="input-block-container">
-                <InputField side='left' type='text' title={STRATEGY} value={"Dutch Auction"} disabled={true}/>
+                <InputField side='left' type='text' title={STRATEGY} value={CROWDSALE_STRATEGIES_DISPLAYNAMES.DUTCH_AUCTION} disabled={true}/>
                 <InputField side='right' type='text' title={WALLET_ADDRESS} value={walletAddress} disabled={true}/>
               </div>
 
@@ -73,14 +75,14 @@ export const ManageDutchAuctionBlock = ({
                   name={`${name}.rate`}
                   side="left"
                   label={TEXT_FIELDS.RATE}
-                  disabled={!canEdit || tierHasStarted}
+                  disabled={true}
                   errorStyle={inputErrorStyle}
                 />
                 <CrowdsaleSupply
                   name={`${name}.supply`}
                   side="right"
                   description={DESCRIPTION.SUPPLY_DUTCH_AUCTION}
-                  disabled={!canEdit || tierHasStarted}
+                  disabled={true}
                   errorStyle={inputErrorStyle}
                 />
               </div>
