@@ -1,17 +1,72 @@
 import React from 'react'
 import { Form } from 'react-final-form'
 import { StepTwoForm } from './StepTwoForm'
+import renderer from 'react-test-renderer'
 import Adapter from 'enzyme-adapter-react-15'
 import { configure, mount } from 'enzyme'
+import CrowdsaleStore from '../../stores/CrowdsaleStore'
+import { CROWDSALE_STRATEGIES } from '../../utils/constants'
 
 configure({ adapter: new Adapter() })
 jest.mock('react-dropzone', () => () =><span>Dropzone</span>);
 
 describe('StepTwoForm', () => {
+  let crowdsaleStore
+
+  beforeEach(() => {
+    crowdsaleStore = new CrowdsaleStore()
+    crowdsaleStore.setProperty('strategy', CROWDSALE_STRATEGIES.MINTED_CAPPED_CROWDSALE)
+  })
+
+  it(`should render StepTwoForm for Minted Capped Crowdsale`, () => {
+    const wrapper = renderer.create(
+      <Form
+        crowdsaleStore={crowdsaleStore}
+        onSubmit={jest.fn()}
+        initialValues={{
+          name: 'This is a valid name',
+          ticker: 'TTK',
+          decimals: '14'
+        }}
+        component={StepTwoForm}
+        disableDecimals={false}
+        updateTokenStore={jest.fn()}
+        id="tokenData"
+        tokens={[]}
+      />
+    )
+
+    expect(wrapper).toMatchSnapshot()
+  })
+
+  it(`should render StepTwoForm for Dutch Auction Crowdsale`, () => {
+    crowdsaleStore.setProperty('strategy', CROWDSALE_STRATEGIES.DUTCH_AUCTION)
+
+    const wrapper = renderer.create(
+      <Form
+        crowdsaleStore={crowdsaleStore}
+        onSubmit={jest.fn()}
+        initialValues={{
+          name: 'This is a valid name',
+          ticker: 'TTK',
+          decimals: '14'
+        }}
+        component={StepTwoForm}
+        disableDecimals={false}
+        updateTokenStore={jest.fn()}
+        id="tokenData"
+        tokens={[]}
+      />
+    )
+
+    expect(wrapper).toMatchSnapshot()
+  })
+
   it('Should call onSubmit if all values are valid', () => {
     const onSubmit = jest.fn()
     const wrapper = mount(
       <Form
+        crowdsaleStore={crowdsaleStore}
         onSubmit={onSubmit}
         initialValues={{
           name: 'This is a valid name',
@@ -35,6 +90,7 @@ describe('StepTwoForm', () => {
     const onSubmit = jest.fn()
     const wrapper = mount(
       <Form
+        crowdsaleStore={crowdsaleStore}
         onSubmit={onSubmit}
         initialValues={{
           name: 'This is a valid name',
@@ -58,6 +114,7 @@ describe('StepTwoForm', () => {
     const updateTokenStore = jest.fn()
     const wrapper = mount(
       <Form
+        crowdsaleStore={crowdsaleStore}
         onSubmit={jest.fn()}
         initialValues={{}}
         component={StepTwoForm}
@@ -78,6 +135,7 @@ describe('StepTwoForm', () => {
     const updateTokenStore = jest.fn()
     const wrapper = mount(
       <Form
+        crowdsaleStore={crowdsaleStore}
         onSubmit={jest.fn()}
         initialValues={{}}
         component={StepTwoForm}
@@ -98,6 +156,7 @@ describe('StepTwoForm', () => {
     const updateTokenStore = jest.fn()
     const wrapper = mount(
       <Form
+        crowdsaleStore={crowdsaleStore}
         onSubmit={jest.fn()}
         initialValues={{}}
         component={StepTwoForm}

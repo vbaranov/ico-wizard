@@ -78,13 +78,30 @@ module.exports = {
     },
     test: {
       default: series(
-        'bash ./start_testrpc.sh',
-        'cd ./submodules/poa-token-market-net-ico/',
+        'nps test.DutchAuction',
+        'nps test.MintedCappedCrowdsale',
+      ),
+      MintedCappedCrowdsale: series(
+        'bash ./scripts/start_ganache.sh',
+        'cd ./submodules/auth-os-applications/',
+        'cd ./TokenWizard/crowdsale/MintedCappedCrowdsale/',
         'npm install',
-        'node_modules/.bin/truffle migrate --network testrpc',
-        'node_modules/.bin/truffle test --network testrpc',
-        'cd ../../',
-        'nps test.e2e'
+        'node_modules/.bin/truffle migrate --network development',
+        'node_modules/.bin/truffle test --network development',
+        'cd ../../../../../',
+        //'nps test.e2e'
+        'bash ./scripts/stop_ganache.sh',
+      ),
+      DutchAuction: series(
+        'bash ./scripts/start_ganache.sh',
+        'cd ./submodules/auth-os-applications/',
+        'cd ./TokenWizard/crowdsale/DutchCrowdsale/',
+        'npm install',
+        'node_modules/.bin/truffle migrate --network development',
+        'node_modules/.bin/truffle test --network development',
+        'cd ../../../../../',
+        //'nps test.e2e'
+        'bash ./scripts/stop_ganache.sh',
       ),
       e2e: {
         default: series(

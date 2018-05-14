@@ -28,6 +28,7 @@ import { Form } from 'react-final-form'
 import arrayMutators from 'final-form-arrays'
 import { AboutCrowdsale } from './AboutCrowdsale'
 import { FinalizeCrowdsaleStep } from './FinalizeCrowdsaleStep'
+import { DistributeTokensStep } from './DistributeTokensStep'
 import { ManageForm } from './ManageForm'
 
 const { VALID } = VALIDATION_TYPES
@@ -49,7 +50,7 @@ export class Manage extends Component {
       formPristine: true,
       loading: true,
       canFinalize: false,
-      ownerCurrentUser: true
+      ownerCurrentUser: false
     }
 
     this.initialTiers = []
@@ -113,7 +114,7 @@ export class Manage extends Component {
   }
 
   extractContractsData = () => {
-    const { crowdsaleStore, contractStore, match } = this.props
+    const { crowdsaleStore, contractStore, tokenStore, match } = this.props
     contractStore.setContractProperty('crowdsale', 'execID', match.params.crowdsaleExecID)
 
     return getTiers()
@@ -135,6 +136,8 @@ export class Manage extends Component {
                 whenCrowdsaleData.push(whenCrowdsale)
                 let whenToken = initCrowdsaleContract.methods.getTokenInfo(registryStorageObj.addr, contractStore.crowdsale.execID).call();
                 whenCrowdsaleData.push(whenToken)
+                const whenReservedTokensDestinations = crowdsaleStore.isMintedCappedCrowdsale ? initCrowdsaleContract.methods.getReservedTokenDestinationList(registryStorageObj.addr, contractStore.crowdsale.execID).call() : null;
+                whenCrowdsaleData.push(whenReservedTokensDestinations)
 
                 if (crowdsaleStore.isMintedCappedCrowdsale) {
                   for (let tierNum = 0; tierNum < numOfTiers; tierNum++) {
@@ -157,9 +160,12 @@ export class Manage extends Component {
                 let initCrowdsaleContract = crowdsaleData[0];
                 let crowdsale = crowdsaleData[1];
                 let token = crowdsaleData[2];
-                crowdsaleData.shift();
-                crowdsaleData.shift();
-                crowdsaleData.shift();
+                let reservedTokensDestinationsObj = crowdsaleData[3];
+
+                crowdsaleData.shift(); //initCrowdsaleContract
+                crowdsaleData.shift(); //crowdsale
+                crowdsaleData.shift(); //token
+                crowdsaleData.shift(); //reservedTokensDestinationsObj
 
                 let tiers = [];
                 let tierExtendedObj = {};
@@ -185,9 +191,23 @@ export class Manage extends Component {
                 console.log("tiers:")
                 console.log(tiers)
 
+                let registryStorageObj = toJS(contractStore.registryStorage)
+
+                //get reserved tokens info
+                let reservedTokensDestinations = []
+                let whenReservedTokensInfoArr = [];
+                if (crowdsaleStore.isMintedCappedCrowdsale) {
+                  reservedTokensDestinations = reservedTokensDestinationsObj.reserved_destinations
+                  for (let dest = 0; dest < reservedTokensDestinationsObj.reserved_destinations.length; dest++) {
+                    let destination = reservedTokensDestinations[dest]
+                    console.log("destination:", destination)
+                    let whenReservedTokensInfo = initCrowdsaleContract.methods.getReservedDestinationInfo(registryStorageObj.addr, contractStore.crowdsale.execID, destination).call()
+                    whenReservedTokensInfoArr.push(whenReservedTokensInfo);
+                  }
+                }
+
                 //get whitelists for tiers
                 let whenWhiteListsData = [];
-                let registryStorageObj = toJS(contractStore.registryStorage)
                 if (crowdsaleStore.isMintedCappedCrowdsale) {
                   for (let tierNum = 0; tierNum < numOfTiers; tierNum++) {
                     if (tiers[tierNum].whitelist_enabled) {
@@ -199,8 +219,21 @@ export class Manage extends Component {
                   }
                 }
 
-                return Promise.all(whenWhiteListsData)
-                  .then((whiteListsData) => {
+                let whenTotalData = whenReservedTokensInfoArr.concat(whenWhiteListsData)
+                console.log("whenTotalData:", whenTotalData)
+                console.log("whenReservedTokensInfoArr.length:", whenReservedTokensInfoArr.length)
+
+                return Promise.all(whenTotalData)
+                  .then((totalData) => {
+                    console.log("totalData:", totalData)
+                    let whiteListsData = []
+                    let reservedTokensInfoRaw = []
+                    if (whenReservedTokensInfoArr.length > 0) {
+                      reservedTokensInfoRaw = totalData.slice(0, whenReservedTokensInfoArr.length);
+                      whiteListsData = totalData.slice(whenReservedTokensInfoArr.length);
+                    } else {
+                      whiteListsData = totalData.slice()
+                    }
                     console.log("whiteListsData:", whiteListsData)
                     let whitelistPromises = []
                     for (let tierNum = 0; tierNum < numOfTiers; tierNum++) {
@@ -223,18 +256,41 @@ export class Manage extends Component {
                         }
                       }
                     }
+                    console.log("reservedTokensInfoRaw:", reservedTokensInfoRaw)
+                    let reservedTokensInfo = []
+                    for (let dest = 0; dest < reservedTokensInfoRaw.length; dest++) {
+                      let reservedTokensInfoObj = reservedTokensInfoRaw[dest]
+                      if (reservedTokensInfoObj.num_tokens > 0) {
+                        reservedTokensInfo.push(
+                          {
+                            addr: reservedTokensDestinations[dest],
+                            dim: "tokens",
+                            val: Number(reservedTokensInfoObj.num_tokens) / `1e${token.token_decimals}`
+                          }
+                        )
+                      }
+                      if (reservedTokensInfoObj.num_percent > 0) {
+                        reservedTokensInfo.push(
+                          {
+                            addr: reservedTokensDestinations[dest],
+                            dim: "percentage",
+                            val: Number(reservedTokensInfoObj.num_percent) / `1e${reservedTokensInfoObj.percent_decimals}`
+                          }
+                        )
+                      }
+                    }
                     return Promise.all(whitelistPromises)
                       .then(() => {
                         console.log(tiers)
                         return tiers.reduce((promise, tier, index) => {
-                          return promise.then(() => processTier(tier, crowdsale, token, index))
+                          return promise.then(() => processTier(tier, crowdsale, token, reservedTokensInfo, index))
                         }, Promise.resolve())
                       })
                   })
                   .catch((err) => {
                     console.log(tiers)
                     return tiers.reduce((promise, tier, index) => {
-                      return promise.then(() => processTier(tier, crowdsale, token, index))
+                      return promise.then(() => processTier(tier, crowdsale, token, [], index))
                     }, Promise.resolve())
                   })
               })
@@ -346,17 +402,17 @@ export class Manage extends Component {
                     let methodName
                     let targetPrefix
                     if (crowdsaleStore.isMintedCappedCrowdsale) {
-                      methodName = "finalizeCrowdsale"
+                      methodName = "finalizeCrowdsaleAndToken"
                       targetPrefix = "tokenConsole"
                     } else if (crowdsaleStore.isDutchAuction) {
-                      methodName = "finalizeCrowdsaleAndToken"
+                      methodName = "finalizeCrowdsale"
                       targetPrefix = "crowdsaleConsole"
                     }
                     const targetSuffix = crowdsaleStore.contractTargetSuffix
                     const target = `${targetPrefix}${targetSuffix}`
 
                     let paramsToExec = [methodInterface]
-                    const method = methodToExec(`${methodName}(${methodInterface.join(',')})`, target, this.getFinalizeCrowdsaleParams, paramsToExec)
+                    const method = methodToExec("scriptExec", `${methodName}(${methodInterface.join(',')})`, target, this.getFinalizeCrowdsaleParams, paramsToExec)
 
                     let opts = {
                       gasPrice: this.props.generalStore.gasPrice,
@@ -452,9 +508,16 @@ export class Manage extends Component {
 
     return (
       <section className="manage">
+
         <FinalizeCrowdsaleStep
           disabled={!ownerCurrentUser || finalized || !canFinalize}
           handleClick={this.finalizeCrowdsale}
+        />
+
+        <DistributeTokensStep
+          owner={ownerCurrentUser}
+          disabled={!ownerCurrentUser}
+          handleClick={this.distributeReservedTokens}
         />
 
         <Form

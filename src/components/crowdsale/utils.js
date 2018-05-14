@@ -6,6 +6,7 @@ import {
 import { contractStore, crowdsalePageStore, tokenStore, web3Store, crowdsaleStore } from '../../stores'
 import { toJS } from 'mobx'
 import { BigNumber } from 'bignumber.js'
+import { removeTrailingNUL } from '../../utils/utils'
 
 BigNumber.config({ DECIMAL_PLACES : 18 })
 
@@ -38,9 +39,9 @@ export let getTokenData = (initCrowdsaleContract, execID, account) => {
       ]) => {
         const { web3 } = web3Store
 
-        tokenStore.setProperty('name', web3.utils.toAscii(name))
+        tokenStore.setProperty('name', removeTrailingNUL(web3.utils.toAscii(name)))
         console.log('token name: ' + name)
-        tokenStore.setProperty('ticker', web3.utils.toAscii(ticker))
+        tokenStore.setProperty('ticker', removeTrailingNUL(web3.utils.toAscii(ticker)))
         console.log('token ticker: ' + ticker)
         tokenStore.setProperty('decimals', decimals)
         console.log('token decimals: ' + decimals)
@@ -77,7 +78,7 @@ export let getCrowdsaleData = (initCrowdsaleContract, execID, account) => {
     let getTokensSold = initCrowdsaleContract.methods.getTokensSold(registryStorageObj.addr, execID).call();
     let getContributors = initCrowdsaleContract.methods.getCrowdsaleUniqueBuyers(registryStorageObj.addr, execID).call();
 
-    let getCurrentTierInfo = crowdsaleStore.isMintedCappedCrowdsale? initCrowdsaleContract.methods.getCurrentTierInfo(registryStorageObj.addr, execID).call() : null;
+    let getCurrentTierInfo = crowdsaleStore.isMintedCappedCrowdsale ? initCrowdsaleContract.methods.getCurrentTierInfo(registryStorageObj.addr, execID).call() : null;
     let getCrowdsaleMaxRaise = crowdsaleStore.isMintedCappedCrowdsale ? initCrowdsaleContract.methods.getCrowdsaleMaxRaise(registryStorageObj.addr, execID).call() : null;
 
     let getCrowdsaleStartAndEndTimes = crowdsaleStore.isDutchAuction ? initCrowdsaleContract.methods.getCrowdsaleStartAndEndTimes(registryStorageObj.addr, execID).call() : null;
@@ -133,10 +134,13 @@ export let getCrowdsaleData = (initCrowdsaleContract, execID, account) => {
         } else if (crowdsaleStore.isDutchAuction) {
           crowdsalePageStore.setProperty('rate', Number(crowdsaleStatus.current_rate).toFixed()) //should be one token in wei
           crowdsalePageStore.setProperty('maximumSellableTokens', toBigNumber(isCrowdsaleFull.max_sellable).toFixed())
-          let remainingETH = toBigNumber(crowdsaleStatus.current_rate) > 0 ? parseInt((toBigNumber(crowdsaleStatus.tokens_remaining)).div(toBigNumber(crowdsaleStatus.current_rate)), 10) : 0
-          console.log("remainingETH:",remainingETH)
-          let maximumSellableTokensInETH = (toBigNumber(crowdsaleInfo.wei_raised)).plus(remainingETH).toFixed()
-          let maximumSellableTokensInWei = web3.utils.toWei(maximumSellableTokensInETH, 'ether')
+
+          let curRateBN = (toBigNumber(crowdsaleStatus.current_rate))//.multipliedBy(`1e18`) //one token in wei
+          let tokenRemainingBN = toBigNumber(crowdsaleStatus.tokens_remaining)
+          let remainingWEI = curRateBN > 0 ? (tokenRemainingBN.div(`1e${tokenStore.decimals}`).multipliedBy(curRateBN)).integerValue(BigNumber.ROUND_CEIL) : 0
+          console.log("remainingWEI:",remainingWEI)
+          let maximumSellableTokensInWei = (toBigNumber(crowdsaleInfo.wei_raised)).plus(remainingWEI).toFixed()
+          let maximumSellableTokensInETH = web3.utils.fromWei(maximumSellableTokensInWei, 'ether')
           console.log("maximumSellableTokensInETH:", maximumSellableTokensInETH)
           console.log("maximumSellableTokensInWei:", maximumSellableTokensInWei)
           crowdsalePageStore.setProperty('maximumSellableTokensInWei', maximumSellableTokensInWei)
@@ -246,4 +250,21 @@ export const getTiers = () => {
 export const getContractStoreProperty = (contract, property) => {
   const text = contractStore && contractStore[contract] && contractStore[contract][property]
   return text === undefined ? '' : text
+}
+
+export const getUserLimits = async (addr, execID, target, account) => {
+  const { methods } =  await attachToSpecificCrowdsaleContract(target)
+  if (crowdsaleStore.isMintedCappedCrowdsale) {
+    const currentTier = await methods.getCurrentTierInfo(addr, execID).call()
+
+    if (!currentTier['whitelist_enabled']) return Promise.resolve(null)
+
+    return await methods.getWhitelistStatus(addr, execID, currentTier['tier_index'], account).call()
+  } else if (crowdsaleStore.isDutchAuction) {
+    const crowdsaleWhitelist = await methods.getCrowdsaleWhitelist(addr, execID).call()
+
+    if (crowdsaleWhitelist['num_whitelisted'] == 0) return Promise.resolve(null)
+
+    return await methods.getWhitelistStatus(addr, execID, account).call()
+  }
 }
