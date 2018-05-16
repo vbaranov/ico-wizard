@@ -138,6 +138,8 @@ export const VALIDATION_MESSAGES = {
   DATE_IS_LATER: 'Should be later than specified time',
   DATE_IS_SAME_OR_PREVIOUS: 'Should be same or previous than specified time',
   PATTERN: 'Should match the specified pattern',
+  DECIMAL_PLACES_9: 'Should not have more than 9 decimals',
+  NUMBER_GREATER_THAN: 'Should be greater than 0.1'
 }
 
 //descriptions of input fields
@@ -152,7 +154,14 @@ export const DESCRIPTION = {
   RATE: `Exchange rate Ethereum to Tokens. If it's 100, then for 1 Ether you can buy 100 tokens`,
   SUPPLY: `How many tokens will be sold on this tier. Cap of crowdsale equals to sum of supply of all tiers`,
   SUPPLY_DUTCH_AUCTION: `How many tokens will be sold on crowdsale`,
-  TOKEN_SUPPLY: `The total supply of the token`
+  TOKEN_SUPPLY: `The total supply of the token`,
+  MIN_CAP: `Minimum amount of tokens to buy. Not the minimal amount for every transaction: if minCap is 1
+               and a user already has 1 token from a previous transaction, they can buy any amount they want.`,
+  ENABLE_WHITELIST: `Enables whitelisting. If disabled, anyone can participate in the crowdsale.`,
+  WALLET: `Where the money goes after investors transactions. Immediately after each transaction. We
+                        recommend to setup a multisig wallet with hardware based signers.`,
+  CROWDSALE_SETUP: `The most important and exciting part of the crowdsale process. Here you can
+              define parameters of your crowdsale campaign.`
 }
 
 export const TEXT_FIELDS = {
@@ -222,69 +231,6 @@ export const initialStepThreeValues = {
   }]
 }
 
-export const SUMMARY_FILE_MINTED_CAPPED_CROWDSALE_CONTENTS = {
-  common: [
-    { field: 'name', value: 'Token name: ', parent: 'tokenStore' },
-    { field: 'ticker', value: 'Token ticker: ', parent: 'tokenStore' },
-    { field: 'decimals', value: 'Token decimals: ', parent: 'tokenStore' },
-    { field: 'walletAddress', value: 'Multisig wallet address: ', parent: 'tierStore' },
-    { value: '*****************************', parent: 'none', fileValue: '' },
-    { field: 'rate', value: 'Crowdsale rate: ', parent: 'tierStore' },
-    { field: 'startTime', value: 'Crowdsale start time: ', parent: 'tierStore' },
-    { field: 'endTime', value: 'Crowdsale end time: ', parent: 'tierStore' },
-    { value: '*****************************', parent: 'none', fileValue: '' }
-  ],
-  files: {
-    order: [
-      'crowdsale'
-    ],
-    crowdsale: {
-      name: 'MintedCappedCrowdsale',
-      txt: [
-        { value: 'Auth_os application name: ', parent: 'none', fileValue: 'MintedCappedCrowdsale' },
-        { field: 'execID', value: 'Auth_os execution ID: ', parent: 'crowdsale' },
-        { value: '*****************************', parent: 'none', fileValue: '' }
-      ]
-    }
-  }
-}
-
-export const SUMMARY_FILE_DUTCH_AUCTION_CONTENTS = {
-  common: [
-    { field: 'name', value: 'Token name: ', parent: 'tokenStore' },
-    { field: 'ticker', value: 'Token ticker: ', parent: 'tokenStore' },
-    { field: 'decimals', value: 'Token decimals: ', parent: 'tokenStore' },
-    { field: 'supply', value: 'Token supply: ', parent: 'tokenStore' },
-    { field: 'walletAddress', value: 'Multisig wallet address: ', parent: 'tierStore' },
-    { value: '*****************************', parent: 'none', fileValue: '' },
-    { field: 'minRate', value: 'Crowdsale min rate: ', parent: 'tierStore' },
-    { field: 'maxRate', value: 'Crowdsale max rate: ', parent: 'tierStore' },
-    { field: 'supply', value: 'Crowdsale supply: ', parent: 'tierStore' },
-    { field: 'startTime', value: 'Crowdsale start time: ', parent: 'tierStore' },
-    { field: 'endTime', value: 'Crowdsale end time: ', parent: 'tierStore' },
-    { value: '*****************************', parent: 'none', fileValue: '' }
-  ],
-  files: {
-    order: [
-      'crowdsale'
-    ],
-    crowdsale: {
-      name: 'DutchAuction',
-      txt: [
-        { value: 'Auth_os application name: ', parent: 'none', fileValue: 'DutchAuction' },
-        { field: 'execID', value: 'Auth_os execution ID: ', parent: 'crowdsale' },
-        { value: '*****************************', parent: 'none', fileValue: '' }
-      ]
-    }
-  }
-}
-
-export const DOWNLOAD_NAME = 'tokenwizard'
-export const DOWNLOAD_TYPE = {
-  text: 'text/plain',
-  blob: 'blob'
-}
-
 export const INVESTMENT_OPTIONS = {
   METAMASK: 'metamask',
   QR: 'qr'
@@ -307,15 +253,4 @@ export const TOAST = {
     offset: 80,
     time: 10000
   }
-}
-
-export const TX_STEP_DESCRIPTION = {
-  crowdsaleCreate: "Create Crowdsale instance",
-  token: "Initialize Token",
-  //registerCrowdsaleAddress: "Associate Crowdsale address to current account",
-  setReservedTokens: "Register addresses for Reserved Tokens",
-  updateGlobalMinContribution: "Update global minimum contribution",
-  createCrowdsaleTiers: "Add tiers to Crowdsale",
-  whitelist: "Register whitelisted addresses",
-  crowdsaleInit: "Initialize Crowdsale",
 }
