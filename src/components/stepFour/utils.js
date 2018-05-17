@@ -11,7 +11,7 @@ import {
 //import { noContractAlert } from '../../utils/alerts'
 import { countDecimalPlaces, toFixed } from '../../utils/utils'
 import { CROWDSALE_STRATEGIES } from '../../utils/constants'
-import { DOWNLOAD_NAME, REACT_PREFIX, MINTED_PREFIX, DUTCH_PREFIX } from './constants'
+import { DOWNLOAD_NAME, REACT_PREFIX, MINTED_PREFIX, DUTCH_PREFIX, ADDR_BOX_LEN } from './constants'
 import { isObservableArray } from 'mobx'
 import {
   contractStore,
@@ -445,6 +445,7 @@ const getReservedTokensParams = (addrs, inTokens, inPercentageUnit, inPercentage
 
 export const setReservedTokensListMultiple = () => {
   console.log('###setReservedTokensListMultiple:###')
+  console.log("reservedTokenStore:", reservedTokenStore)
   return [
     () => {
       let map = {}
@@ -752,7 +753,23 @@ export const handlerForFile = (content, type) => {
   console.log("type:", type)
 
   if (content && type) {
-    return `${content.value}${type[content.field]}${suffix}`
+    if (content.field == "whitelist") {
+      let whitelistItems = []
+      for (let i = 0; i < type.whitelist.length; i++) {
+        let whiteListItem = type.whitelist[i]
+        whitelistItems.push(whitelistTableItem(whiteListItem).join('\n'))
+      }
+      return whitelistItems
+    } else if (content.field == "tokens" && content.parent == "reservedTokenStore") {
+      let reservedTokensItems = []
+      for (let i = 0; i < type.tokens.length; i++) {
+        let reservedTokensItem = type.tokens[i]
+        reservedTokensItems.push(reservedTokensTableItem(reservedTokensItem).join('\n'))
+      }
+      return reservedTokensItems.join('\n')
+    } else {
+      return `${content.value}${type[content.field]}${suffix}`
+    }
   } else {
     if (!content) {
       console.log("WARNING!: content is undefined")
@@ -761,6 +778,40 @@ export const handlerForFile = (content, type) => {
       console.log("WARNING!: type is undefined")
     }
     return ''
+  }
+}
+
+const whitelistTableItem = (whiteListItem) => {
+  const valBoxLen = 28
+  return [
+    '|                                            |                            |                            |',
+    `|${fillWithSpaces(whiteListItem.addr, ADDR_BOX_LEN)}|${fillWithSpaces(whiteListItem.min, valBoxLen)}|${fillWithSpaces(whiteListItem.max, valBoxLen)}|`,
+    '|____________________________________________|____________________________|____________________________|'
+  ]
+}
+
+const reservedTokensTableItem = (reservedTokensItem) => {
+  const valBoxLen = 56
+  const dim = reservedTokensItem.dim === 'percentage' ? '%' : 'tokens'
+  return [
+    '|                                            |                                                        |',
+    `|${fillWithSpaces(reservedTokensItem.addr, ADDR_BOX_LEN)}|${fillWithSpaces(`${reservedTokensItem.val} ${dim}`, valBoxLen)}|`,
+    '|____________________________________________|________________________________________________________|'
+  ]
+}
+
+const fillWithSpaces = (val, len) => {
+  val = val.toString()
+  if (val.length < len) {
+    const whitespaceLen = len - val.length
+    const prefixLen = Math.ceil(whitespaceLen / 2)
+    const suffixLen = Number.isInteger(whitespaceLen / 2) ? prefixLen : prefixLen - 1
+    let prefix = new Array(prefixLen).fill(' ').join('')
+    let suffix = new Array(suffixLen).fill(' ').join('')
+    const out = prefix + val + suffix
+    return out
+  } else {
+    return val.toString().substr(len)
   }
 }
 
@@ -898,13 +949,64 @@ const smallHeader = (headerName) => {
   return { value: headerName, parent: 'none', fileValue: '\n' }
 }
 
+const whitelistHeaderTableElements = () => {
+  return [
+    { value: '________________________________________________________________________________________________________', parent: 'none', fileValue: '' },
+    { value: '|                                            |                            |                            |', parent: 'none', fileValue: '' },
+    { value: '|                ADDRESS                     |     MIN CAP IN TOKENS      |     MAX CAP IN TOKENS      |', parent: 'none', fileValue: '' },
+    { value: '|____________________________________________|____________________________|____________________________|', parent: 'none', fileValue: '' },
+  ]
+}
+
+const reservedTokensHeaderTableElements = () => {
+  return [
+    { value: '_______________________________________________________________________________________________________', parent: 'none', fileValue: '' },
+    { value: '|                                            |                                                        |', parent: 'none', fileValue: '' },
+    { value: '|                ADDRESS                     |                        VALUE                           |', parent: 'none', fileValue: '' },
+    { value: '|____________________________________________|________________________________________________________|', parent: 'none', fileValue: '' },
+  ]
+}
+
 export const SUMMARY_FILE_CONTENTS = (networkID) => {
+  let globalMinCapEl = []
+  let crowdsaleWhitelistElements = []
+  let tierWhitelistElements = []
+  if (tierStore.tiers[0].whitelistEnabled !== "yes") {
+    globalMinCapEl = [
+      { field: 'globalMinCap', value: 'Crowdsale global min cap: ', parent: 'tierStore' }
+    ]
+  } else {
+    tierWhitelistElements = [
+      '\n',
+      ...bigHeaderElements('*********WHITELIST***********'),
+      ...whitelistHeaderTableElements(),
+      { field: 'whitelist', value: '', parent: 'tierStore' },
+    ]
+  }
+
+  let reservedTokensElements = []
+  if (reservedTokenStore.tokens.length > 0) {
+    reservedTokensElements = [
+      '\n',
+      ...bigHeaderElements('******RESERVED TOKENS********'),
+      ...reservedTokensHeaderTableElements(),
+      { field: 'tokens', value: '', parent: 'reservedTokenStore' },
+    ]
+  }
+
   let rates = []
+  let crowdsaleIsModifiableEl = []
   if (crowdsaleStore.strategy == CROWDSALE_STRATEGIES.DUTCH_AUCTION) {
     rates = [
       { field: 'minRate', value: 'Crowdsale min rate: ', parent: 'tierStore' },
       { field: 'maxRate', value: 'Crowdsale max rate: ', parent: 'tierStore' },
     ]
+
+    crowdsaleIsModifiableEl = [
+      { value: 'Crowdsale is modifiable: ', parent: 'none', fileValue: 'no' },
+    ]
+
+    crowdsaleWhitelistElements = tierWhitelistElements
   }
 
   return {
@@ -914,20 +1016,25 @@ export const SUMMARY_FILE_CONTENTS = (networkID) => {
       { field: 'ticker', value: 'Token ticker: ', parent: 'tokenStore' },
       { field: 'decimals', value: 'Token decimals: ', parent: 'tokenStore' },
       { field: 'supply', value: 'Token total supply: ', parent: 'tokenStore' },
+      ...reservedTokensElements,
       '\n',
       ...bigHeaderElements('*******CROWDSALE SETUP*******'),
       { field: 'walletAddress', value: 'Multisig wallet address: ', parent: 'tierStore' },
       ...rates,
+      ...globalMinCapEl,
       { field: 'supply', value: 'Crowdsale hard cap: ', parent: 'crowdsaleStore' },
       { field: 'startTime', value: 'Crowdsale start time: ', parent: 'tierStore' },
       { field: 'endTime', value: 'Crowdsale end time: ', parent: 'crowdsaleStore' },
+      ...crowdsaleIsModifiableEl,
+      { field: 'whitelistEnabled', value: 'Crowdsale is whitelisted: ', parent: 'tierStore' },
+      ...crowdsaleWhitelistElements,
       ...footerElemets
     ],
     auth_os: [
       ...bigHeaderElements('*******AUTH_OS METADATA******'),
       smallHeader('**********REGISTRY***********'),
       { value: authOSContractString('registry storage'), parent: 'none', fileValue: getAddr("REGISTRY_STORAGE", networkID) },
-      { value: authOSContractString('script exectutor'), parent: 'none', fileValue: getAddr("SCRIPT_EXEC", networkID) },
+      { value: authOSContractString('script executor'), parent: 'none', fileValue: getAddr("SCRIPT_EXEC", networkID) },
       { value: authOSContractString('InitRegistry'), parent: 'none', fileValue: getAddr("INIT_REGISTRY", networkID) },
       { value: authOSContractString('AppConsole'), parent: 'none', fileValue: getAddr("APP_CONSOLE", networkID) },
       { value: authOSContractString('VersionConsole'), parent: 'none', fileValue: getAddr("VERSION_CONSOLE", networkID) },
@@ -958,6 +1065,7 @@ export const SUMMARY_FILE_CONTENTS = (networkID) => {
           { field: 'startTime', value: 'Tier start time: ', parent: 'tierStore' },
           { field: 'endTime', value: 'Tier end time: ', parent: 'tierStore' },
           { field: 'updatable', value: 'Tier is modifiable: ', parent: 'tierStore' },
+          ...tierWhitelistElements,
           ...footerElemets
         ]
       }
